@@ -2,29 +2,23 @@
 <!--
   ==========================================================================
   專案名稱：🦁 台北市立動物園探險任務 (Taipei Zoo Explorer Mission Hub)
-  版本序號：v1.4
+  版本序號：v1.6
   適用對象：國小五年級學生（4 人一組共用 1 台 iPad 或多裝置離線探索專用）
-  核心規格：
-    1. 100% 單一離線檔案（Single-file HTML/CSS/JS），零外部 CDN 或網路依賴
-    2. 全站響應式設計（RWD）：支援手機（360px 起）、iPad、Chromebook、筆電與大螢幕
-    3. 右上方 4 顆純圖示功能鍵（嚴格無文字標籤，具備高對比 Hover Tooltip）：
-       - QR Code 掃碼連結鍵（內建純 JS 離線 ISO/IEC 18004 QR Code 產生器）
-       - 全螢幕功能鍵（Fullscreen API + iPad Safari Pseudo-Fullscreen 雙機制）
-       - 操作指引功能鍵（五年級白話版圖文小幫手彈窗）
-       - 教師設定功能鍵（密碼 2026、自訂解鎖碼、嚴格/自主模式、一鍵解鎖、資料清理）
-    4. 小組 4 人共用一台 iPad 防呆交接系統（快捷切換列 + 全螢幕交接遮罩 + 防誤改保護鎖）
-    5. 四大任務分頁：
-       - 動物偵探社（四階段防偷看觀察與現場解鎖流程）
-       - 行為碼錶手（僅保留真實 3 分鐘計時，無任何快速體驗按鈕，搭配正字筆順 SVG）
-       - 玩具設計師（完全由學生自行輸入觀察筆記，無任何短語標籤拼貼按鈕）
-       - 探險戰報 & 小組總覽（小組對照表、PNG 結業證書與 UTF-8 BOM Excel CSV 匯出）
+  v1.6 全面偵錯與功能更新：
+    1. 更新教師管理密碼並隱藏所有介面提示字樣，強化現場管理安全性。
+    2. 完整實作並驗證標準 ISO/IEC 18004 離線 QR Code 引擎（Version 1–20、
+       ECC Level M、GF(256) RS 糾錯、全 8 種遮罩評估、MSB-to-LSB 格式/版本位元
+       與 4 格靜音區），支援即時 SVG 預覽、高清 PNG 下載與新分頁連結開啟測試。
+    3. 補全並驗證全螢幕切換（相容 Fullscreen API 與 Pseudo-Fullscreen）、
+       三段字體縮放、四關卡防偷看偵探社、3 分鐘正字碼錶、純學生自主輸入玩具筆記、
+       直式 A4（1240 × 1754 px）學習歷程證書與 UTF-8 BOM Excel CSV 匯出。
   ==========================================================================
 -->
 <html lang="zh-Hant-TW" data-font="large">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <title>🦁 台北市立動物園探險任務 v1.4</title>
+  <title>🦁 台北市立動物園探險任務 v1.6</title>
   <style>
     /* ==========================================================================
        1. 響應式戶外高對比色彩系統與三段字體縮放 (RWD + High Contrast)
@@ -109,21 +103,22 @@
     }
 
     /* 所有互動元件確保 >= 48px 觸控熱區，避免誤觸 */
-    button, select, input[type="text"], input[type="password"], input[type="url"], textarea {
+    button, select, input[type="text"], input[type="password"], input[type="url"], textarea, a.btn-link {
       font-family: inherit;
       font-size: 1rem;
       min-height: 48px;
       touch-action: manipulation;
     }
 
-    button, select {
+    button, select, a.btn-link {
       cursor: pointer;
     }
 
-    button {
+    button, a.btn-link {
       border: none;
       border-radius: var(--radius-md);
       font-weight: 800;
+      text-decoration: none;
       transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.15s ease;
       display: inline-flex;
       align-items: center;
@@ -131,7 +126,7 @@
       gap: 0.45em;
     }
 
-    button:active:not(:disabled) {
+    button:active:not(:disabled), a.btn-link:active {
       transform: scale(0.97);
     }
 
@@ -810,7 +805,7 @@
     }
 
     /* ==========================================================================
-       8. 分頁 2：行為碼錶手（僅保留真實 3 分鐘計時 + 正字記號 SVG）
+       8. 分頁 2：行為碼錶手（真實 3 分鐘計時 + 正字記號 SVG）
        ========================================================================== */
     .stopwatch-animal-row {
       display: grid;
@@ -1079,10 +1074,13 @@
 
     #certCanvas {
       max-width: 100%;
+      max-height: 760px;
+      width: auto;
       height: auto;
       border-radius: 12px;
       box-shadow: var(--shadow-md);
       border: 3px solid var(--forest-dark);
+      background-color: #FFFDF7;
     }
 
     .report-btn-row {
@@ -1168,25 +1166,31 @@
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 12px;
-      margin-top: 16px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 480px) {
+      .handover-seat-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .handover-seat-btn {
-      padding: 18px 12px;
-      font-size: 1.25rem;
+      flex-direction: column;
+      padding: 16px 12px;
       background-color: var(--bg-subcard);
       border: 3px solid var(--forest-green);
       color: var(--forest-dark);
-      flex-direction: column;
+      font-size: 1.15rem;
     }
 
     .handover-seat-btn:hover {
-      background-color: var(--orange-main);
-      border-color: var(--orange-dark);
-      color: #FFFFFF;
+      background-color: var(--orange-light);
+      border-color: var(--orange-main);
+      color: var(--orange-dark);
     }
 
-    /* QR Code 畫布樣式 */
+    /* QR Code 畫布與無鋸齒 SVG 容器樣式 */
     .qr-canvas-wrap {
       display: flex;
       flex-direction: column;
@@ -1199,12 +1203,35 @@
       margin-bottom: 14px;
     }
 
-    #qrCanvas {
-      width: 240px;
-      height: 240px;
-      image-rendering: pixelated;
-      border: 8px solid #FFFFFF;
+    #qrSvgContainer {
+      width: 248px;
+      height: 248px;
+      max-width: 100%;
+      background-color: #FFFFFF;
+      border: 6px solid #FFFFFF;
       box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #qrSvgContainer svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      shape-rendering: crispEdges;
+    }
+
+    .qr-file-warning {
+      background-color: var(--amber-light);
+      border: 2px solid var(--amber-warn);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--amber-dark);
+      line-height: 1.45;
     }
 
     .guide-step-item {
@@ -1232,7 +1259,7 @@
       <div class="brand-group">
         <h1 class="brand-title">
           <span>🦁 台北市立動物園探險任務</span>
-          <span class="version-badge">v1.4</span>
+          <span class="version-badge">v1.6</span>
         </h1>
       </div>
 
@@ -1365,7 +1392,7 @@
     </section>
 
     <!-- ==========================================================================
-         分頁 2：行為碼錶手（僅保留真實 3 分鐘計時，已刪除 5 秒快速體驗功能）
+         分頁 2：行為碼錶手（真實 3 分鐘計時 + 正字記號 SVG）
          ========================================================================== -->
     <section id="tab-stopwatch" class="tab-panel" role="tabpanel">
       <div class="section-banner">
@@ -1501,7 +1528,7 @@
     </section>
 
     <!-- ==========================================================================
-         分頁 3：玩具設計師（完全由學生自行輸入筆記，已刪除短語標籤拼貼功能）
+         分頁 3：玩具設計師（完全由學生自行輸入筆記，無短語標籤拼貼）
          ========================================================================== -->
     <section id="tab-toy" class="tab-panel" role="tabpanel">
       <div class="section-banner">
@@ -1539,7 +1566,7 @@
             </div>
           </div>
 
-          <!-- 步驟 3：純學生自主文字輸入區（無任何短語標籤按鈕） -->
+          <!-- 步驟 3：純學生自主文字輸入區 -->
           <div class="free-input-group">
             <label class="field-label" for="toyInputWhat">
               1. 你找到什麼人造玩具？它長什麼樣子？
@@ -1605,15 +1632,15 @@
 
       <!-- 結業證書與 CSV 匯出 -->
       <div class="mission-card">
-        <h3 style="margin-top: 0; color: var(--forest-dark);">🎓 個人探險結業證書（PNG 圖片）</h3>
+        <h3 style="margin-top: 0; color: var(--forest-dark);">🎓 個人素養探索學習歷程證書（直式 A4 高解析度 PNG）</h3>
         <div class="cert-preview-box">
-          <canvas id="certCanvas" width="900" height="620"></canvas>
+          <canvas id="certCanvas" width="1240" height="1754"></canvas>
           <p style="font-size: 0.88rem; color: var(--text-muted); margin: 10px 0 0;">
-            💡 提示：iPad 使用者可點下方「開啟大圖預覽」後，長按圖片即可直接存入相簿！
+            💡 提示：證書已自動彙整你的三大任務實證歷程與筆記！iPad 可點「開啟大圖預覽」長按存入相簿。
           </p>
           <div class="report-btn-row">
             <button type="button" class="primary-action-btn" style="width: auto;" id="btnDownloadCert">
-              ⬇️ 下載結業證書 (PNG)
+              ⬇️ 下載學習歷程證書 (A4 PNG)
             </button>
             <button type="button" class="handover-trigger-btn" id="btnPreviewCertModal">
               🖼️ 開啟大圖預覽（方便 iPad 長按存圖）
@@ -1628,7 +1655,7 @@
   </main>
 
   <!-- ==========================================================================
-       彈窗 1：QR Code 掃碼分享視窗（純 JS 離線產生可掃描 QR Code）
+       彈窗 1：QR Code 掃碼分享視窗（標準 ISO/IEC 18004 離線雙重 SVG/Canvas 渲染）
        ========================================================================== -->
   <div id="qrModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
     <div class="modal-box">
@@ -1636,22 +1663,40 @@
         <h3 id="qrModalTitle">📱 QR Code 掃碼連結分享</h3>
         <button type="button" class="modal-close-btn" data-close-modal="qrModal" aria-label="關閉視窗">✕</button>
       </div>
+
+      <!-- 本機 file:// 路徑貼心提醒框 -->
+      <div id="qrFileWarningBox" class="qr-file-warning" style="display: none;">
+        <div>⚠️ 目前偵測為平板本機檔案（<code>file://</code>），其他裝置掃描無法直接開啟本機路徑。請先將網頁上傳至雲端／學校網頁空間，或於下方輸入短網址後再讓同學掃描！</div>
+        <button type="button" class="unlock-edit-btn" id="btnFillSampleUrl" style="margin-top: 8px; width: 100%;">
+          ✨ 一鍵填入台北市立動物園官方網址（https://www.zoo.gov.taipei/）
+        </button>
+      </div>
+
       <div class="qr-canvas-wrap">
-        <canvas id="qrCanvas" width="280" height="280"></canvas>
-        <div style="font-size: 0.88rem; font-weight: 800; color: var(--forest-dark); margin-top: 8px;">
+        <div id="qrSvgContainer" aria-label="QR Code 掃描圖碼"></div>
+        <canvas id="qrCanvas" width="480" height="480" style="display: none;"></canvas>
+        <div id="qrMetaCaption" style="font-size: 0.86rem; font-weight: 800; color: var(--forest-dark); margin-top: 8px;">
           📷 使用手機或 iPad 相機掃描即可開啟連結
         </div>
       </div>
+
       <div class="free-input-group">
-        <label class="field-label" for="qrUrlInput">網址或分享文字（修改後即時更新 QR Code）：</label>
-        <input type="text" id="qrUrlInput" class="styled-input" placeholder="請輸入網址...">
+        <label class="field-label" for="qrUrlInput">網址或分享文字（支援中文與任意網址，修改即時重繪）：</label>
+        <input type="url" id="qrUrlInput" class="styled-input" placeholder="請輸入網址...">
       </div>
-      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-        <button type="button" class="primary-action-btn" style="flex: 1;" id="btnCopyQrUrl">
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 8px;">
+        <button type="button" class="primary-action-btn" id="btnCopyQrUrl">
           📋 複製連結
         </button>
-        <button type="button" class="edit-group-btn" style="flex: 1;" id="btnResetQrUrl">
-          🔄 還原目前網址
+        <button type="button" class="handover-trigger-btn" id="btnDownloadQrPng">
+          ⬇️ 下載 QR 圖檔
+        </button>
+        <a id="qrDirectOpenLink" href="https://www.zoo.gov.taipei/" target="_blank" rel="noopener noreferrer" class="btn-link edit-group-btn" style="background: var(--sky-light); border-color: var(--sky-blue); color: var(--sky-dark);">
+          🔗 測試開啟連結
+        </a>
+        <button type="button" class="edit-group-btn" id="btnResetQrUrl">
+          🔄 還原預設網址
         </button>
       </div>
     </div>
@@ -1690,7 +1735,7 @@
   </div>
 
   <!-- ==========================================================================
-       彈窗 3：教師設定與現場管理中心（密碼 2026）
+       彈窗 3：教師設定與現場管理中心（密碼已更新且不顯示於任何頁面文字）
        ========================================================================== -->
   <div id="teacherModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
     <div class="modal-box">
@@ -1699,11 +1744,11 @@
         <button type="button" class="modal-close-btn" data-close-modal="teacherModal" aria-label="關閉視窗">✕</button>
       </div>
 
-      <!-- 密碼驗證區 -->
+      <!-- 密碼驗證區（嚴格不顯示任何密碼提示） -->
       <div id="teacherAuthBox">
-        <p style="margin-top: 0; font-weight: 800;">請輸入教師管理密碼以開啟設定（預設密碼：<code>2026</code>）：</p>
+        <p style="margin-top: 0; font-weight: 800;">請輸入教師管理密碼以開啟現場管理設定：</p>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <input type="password" id="teacherPwdInput" class="styled-input" placeholder="輸入管理密碼" inputmode="numeric">
+          <input type="password" id="teacherPwdInput" class="styled-input" placeholder="請輸入管理密碼" inputmode="numeric" autocomplete="off">
           <button type="button" class="primary-action-btn" style="width: auto; white-space: nowrap;" id="btnTeacherLogin">
             🔓 進入管理
           </button>
@@ -1714,7 +1759,7 @@
       <!-- 登入後管理面板 -->
       <div id="teacherControlPanel" style="display: none;">
         <div class="free-input-group">
-          <label class="field-label" for="settingUnlockPin">1. 動物偵探社「現場解鎖碼」（4 位數字）：</label>
+          <label class="field-label" for="settingUnlockPin">1. 動物偵探社「現場解鎖碼」（學生觀察後解鎖用）：</label>
           <div style="display: flex; gap: 8px;">
             <input type="text" id="settingUnlockPin" class="styled-input" maxlength="6" inputmode="numeric">
             <button type="button" class="primary-action-btn" style="width: auto; white-space: nowrap;" id="btnSaveTeacherPin">
@@ -1835,10 +1880,11 @@
     /* ==========================================================================
        一、核心資料與常數定義 (Data & Constants)
        ========================================================================== */
-    const STORAGE_KEY = "tpzoo_mission_v1_4_data";
-    const TEACHER_MASTER_PWD = "2026";
+    const STORAGE_KEY = "tpzoo_mission_v1_6_data";
+    const LEGACY_STORAGE_KEYS = ["tpzoo_mission_v1_5_data", "tpzoo_mission_v1_4_data"];
+    const TEACHER_MASTER_PWD = "20270118";
     const OBSERVE_SECONDS = 15;
-    const STOPWATCH_TOTAL_SECONDS = 180; // 真實 3 分鐘（180 秒），無任何快速體驗按鈕
+    const STOPWATCH_TOTAL_SECONDS = 180; // 真實 3 分鐘（180 秒）
 
     const DETECTIVE_MISSIONS = [
       {
@@ -1846,7 +1892,7 @@
         zone: "🦛 河馬廣場",
         title: "任務 1：河馬真的會流「血汗」嗎？",
         prompt: "卡通裡河馬流汗時皮膚紅紅的，好像流血一樣。現場看看河馬的皮膚，這是真的嗎？",
-        correctGuess: "false", // 「流血汗」是假的，其實是紅色防曬保濕分泌物
+        correctGuess: "false",
         evidenceOptions: [
           "皮膚亮亮的，有透明或淡粉紅色的黏液",
           "皮膚乾乾粗粗的，完全沒有任何水珠",
@@ -1891,9 +1937,9 @@
     function createEmptyStudentRecord() {
       return {
         detective: {
-          hippo:    { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false },
-          penguin:  { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false },
-          pangolin: { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false }
+          hippo:    { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false, tempEditUnlocked: false },
+          penguin:  { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false, tempEditUnlocked: false },
+          pangolin: { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false, tempEditUnlocked: false }
         },
         stopwatch: {
           animal: "台灣黑熊",
@@ -1927,16 +1973,22 @@
       students: {}
     };
 
-    // 暫存計時器 interval（不存入 localStorage）
-    let observeTimers = {}; // { hippo: intervalId, ... }
-    let observeCountdownLeft = {}; // { hippo: 15, ... }
+    // 暫存計時器狀態（不存入 localStorage）
+    let observeTimers = {};
+    let observeCountdownLeft = {};
     let swIntervalId = null;
     let swIsRunning = false;
-    let pendingClearMode = ""; // "current" | "all"
+    let pendingClearMode = "";
 
     function loadState() {
       try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        let raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          for (const legacyKey of LEGACY_STORAGE_KEYS) {
+            raw = localStorage.getItem(legacyKey);
+            if (raw) break;
+          }
+        }
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed && typeof parsed === "object") {
@@ -1951,6 +2003,12 @@
       }
       if (!appState.groupSeats.includes(appState.currentSeat)) {
         appState.currentSeat = appState.groupSeats[0];
+      }
+      if (!appState.teacherSettings || typeof appState.teacherSettings !== "object") {
+        appState.teacherSettings = { unlockPin: "2026", strictMode: true };
+      }
+      if (!appState.students || typeof appState.students !== "object") {
+        appState.students = {};
       }
       appState.groupSeats.forEach(seat => ensureStudentRecord(seat));
       applyFontSize(appState.fontSize || "large");
@@ -1967,19 +2025,17 @@
     function ensureStudentRecord(seat) {
       if (!appState.students[seat]) {
         appState.students[seat] = createEmptyStudentRecord();
-      } else {
-        const base = createEmptyStudentRecord();
-        const cur = appState.students[seat];
-        cur.detective = Object.assign({}, base.detective, cur.detective);
-        Object.keys(base.detective).forEach(k => {
-          cur.detective[k] = Object.assign({}, base.detective[k], cur.detective[k]);
-        });
-        cur.stopwatch = Object.assign({}, base.stopwatch, cur.stopwatch);
-        cur.stopwatch.counts = Object.assign({}, base.stopwatch.counts, cur.stopwatch.counts);
-        cur.toy = Object.assign({}, base.toy, cur.toy);
-        if (!Array.isArray(cur.toy.bodyParts)) cur.toy.bodyParts = [];
       }
-      return appState.students[seat];
+      const rec = appState.students[seat];
+      if (!rec.detective) rec.detective = createEmptyStudentRecord().detective;
+      DETECTIVE_MISSIONS.forEach(m => {
+        if (!rec.detective[m.id]) {
+          rec.detective[m.id] = { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false, tempEditUnlocked: false };
+        }
+      });
+      if (!rec.stopwatch) rec.stopwatch = createEmptyStudentRecord().stopwatch;
+      if (!rec.toy) rec.toy = createEmptyStudentRecord().toy;
+      return rec;
     }
 
     function getCurrentRecord() {
@@ -1987,53 +2043,58 @@
     }
 
     /* ==========================================================================
-       三、Web Audio API 離線音效合成器 (Zero External Audio Files)
+       三、離線 Web Audio API 互動音效引擎（無外部音檔依賴）
        ========================================================================== */
-    let audioCtx = null;
-    function playTone(freq, duration = 0.12, type = "sine", volume = 0.18, delay = 0) {
+    let sharedAudioCtx = null;
+    function getAudioContext() {
+      if (!sharedAudioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) sharedAudioCtx = new AudioCtx();
+      }
+      if (sharedAudioCtx && sharedAudioCtx.state === "suspended") {
+        sharedAudioCtx.resume().catch(() => {});
+      }
+      return sharedAudioCtx;
+    }
+
+    function playTone(freq = 520, duration = 0.08, type = "sine", volume = 0.12) {
       try {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return;
-        if (!audioCtx) audioCtx = new AudioContextClass();
-        if (audioCtx.state === "suspended") audioCtx.resume();
-
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+        const ctx = getAudioContext();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
         osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
-        gain.gain.setValueAtTime(volume, audioCtx.currentTime + delay);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
-
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(volume, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
         osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(audioCtx.currentTime + delay);
-        osc.stop(audioCtx.currentTime + delay + duration);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
       } catch (e) {
-        // 忽略瀏覽器音效限制
+        // 忽略靜音或瀏覽器限制
       }
     }
 
     function playClickSound() {
-      playTone(620, 0.07, "triangle", 0.14);
+      playTone(620, 0.05, "sine", 0.09);
     }
 
     function playSwitchSound() {
-      playTone(523.25, 0.1, "sine", 0.16, 0);
-      playTone(659.25, 0.12, "sine", 0.16, 0.09);
-      playTone(783.99, 0.16, "sine", 0.18, 0.18);
+      playTone(523.25, 0.07, "triangle", 0.12);
+      setTimeout(() => playTone(659.25, 0.1, "triangle", 0.12), 70);
     }
 
     function playSuccessFanfare() {
-      playTone(523.25, 0.12, "triangle", 0.18, 0);
-      playTone(659.25, 0.12, "triangle", 0.18, 0.11);
-      playTone(783.99, 0.12, "triangle", 0.18, 0.22);
-      playTone(1046.5, 0.28, "triangle", 0.22, 0.33);
+      playTone(523.25, 0.09, "triangle", 0.14);
+      setTimeout(() => playTone(659.25, 0.09, "triangle", 0.14), 90);
+      setTimeout(() => playTone(783.99, 0.18, "triangle", 0.15), 180);
     }
 
     /* ==========================================================================
-       四、純 JS 離線 ISO/IEC 18004 QR Code 產生器 (Zero Network Dependencies)
+       四、標準 ISO/IEC 18004 離線 QR Code 產生器 (Version 1–20, ECC Level M)
        ========================================================================== */
-    const OfflineQR = (function () {
+    const OfflineQR = (() => {
       // GF(256) 指數與對數表（本原多項式 0x11d = 285）
       const EXP = new Uint8Array(512);
       const LOG = new Uint8Array(256);
@@ -2053,9 +2114,9 @@
         return EXP[LOG[a] + LOG[b]];
       }
 
-      function getGeneratorPoly(ecCount) {
+      function getRsGeneratorPoly(degree) {
         let poly = [1];
-        for (let i = 0; i < ecCount; i++) {
+        for (let i = 0; i < degree; i++) {
           const next = new Array(poly.length + 1).fill(0);
           const factor = EXP[i];
           for (let j = 0; j < poly.length; j++) {
@@ -2067,379 +2128,463 @@
         return poly;
       }
 
-      function computeRS(dataBytes, ecCount) {
-        const gen = getGeneratorPoly(ecCount);
-        const res = new Uint8Array(dataBytes.length + ecCount);
-        res.set(dataBytes);
+      function computeRsEcc(dataBytes, ecLen) {
+        const gen = getRsGeneratorPoly(ecLen);
+        const res = new Uint8Array(ecLen);
         for (let i = 0; i < dataBytes.length; i++) {
-          const coef = res[i];
-          if (coef !== 0) {
-            for (let j = 1; j < gen.length; j++) {
-              res[i + j] ^= gfMul(gen[j], coef);
-            }
+          const factor = dataBytes[i] ^ res[0];
+          for (let j = 0; j < ecLen - 1; j++) {
+            res[j] = res[j + 1] ^ gfMul(gen[j + 1], factor);
           }
+          res[ecLen - 1] = gfMul(gen[ecLen], factor);
         }
-        return res.slice(dataBytes.length);
+        return res;
       }
 
-      // Version 1 ~ 10 ECC Level L 規格表: [version, size, blocks: [[count, dataCw, ecCw], ...], alignCenters]
-      const VERSIONS_L = [
+      // ISO/IEC 18004 Table 9: Error Correction Level M (Version 1..20)
+      // [totalCodewords, b1Count, b1DataLen, b2Count, b2DataLen, ecPerBlock]
+      const VERSION_M_SPECS = [
         null,
-        { v: 1,  size: 21, blocks: [[1, 19, 7]],  align: [] },
-        { v: 2,  size: 25, blocks: [[1, 34, 10]], align: [6, 18] },
-        { v: 3,  size: 29, blocks: [[1, 55, 15]], align: [6, 22] },
-        { v: 4,  size: 33, blocks: [[1, 80, 20]], align: [6, 26] },
-        { v: 5,  size: 37, blocks: [[1, 108, 26]], align: [6, 30] },
-        { v: 6,  size: 41, blocks: [[2, 68, 18]], align: [6, 34] },
-        { v: 7,  size: 45, blocks: [[2, 78, 20]], align: [6, 22, 38] },
-        { v: 8,  size: 49, blocks: [[2, 97, 24]], align: [6, 24, 42] },
-        { v: 9,  size: 53, blocks: [[2, 116, 30]], align: [6, 26, 46] },
-        { v: 10, size: 57, blocks: [[2, 68, 18], [2, 69, 18]], align: [6, 28, 50] }
+        [26,   1, 16,  0,  0, 10], // V1
+        [44,   1, 28,  0,  0, 16], // V2
+        [70,   1, 44,  0,  0, 26], // V3
+        [100,  2, 32,  0,  0, 18], // V4
+        [134,  2, 43,  0,  0, 24], // V5
+        [172,  4, 27,  0,  0, 16], // V6
+        [196,  4, 31,  0,  0, 18], // V7
+        [242,  2, 38,  2, 39, 22], // V8
+        [292,  3, 36,  2, 37, 22], // V9
+        [346,  4, 43,  1, 44, 26], // V10
+        [404,  1, 50,  4, 51, 30], // V11
+        [466,  6, 36,  2, 37, 22], // V12
+        [532,  8, 37,  1, 38, 22], // V13
+        [581,  4, 40,  5, 41, 24], // V14
+        [655,  5, 41,  5, 42, 24], // V15
+        [733,  7, 45,  3, 46, 28], // V16
+        [815, 10, 46,  1, 47, 28], // V17
+        [901,  9, 43,  4, 44, 26], // V18
+        [991,  3, 44, 11, 45, 26], // V19
+        [1085, 3, 41, 13, 42, 26]  // V20
       ];
 
-      function utf8Encode(str) {
+      // ISO/IEC 18004 Annex E: Alignment Pattern Center Coordinates (Version 1..20)
+      const ALIGNMENT_TABLE = [
+        null,
+        [],
+        [6, 18],
+        [6, 22],
+        [6, 26],
+        [6, 30],
+        [6, 34],
+        [6, 22, 38],
+        [6, 24, 42],
+        [6, 26, 46],
+        [6, 28, 50],
+        [6, 30, 54],
+        [6, 32, 58],
+        [6, 34, 62],
+        [6, 26, 46, 66],
+        [6, 26, 48, 70],
+        [6, 26, 50, 74],
+        [6, 30, 54, 78],
+        [6, 30, 56, 82],
+        [6, 30, 58, 86],
+        [6, 34, 62, 90]
+      ];
+
+      function encodeUtf8Bytes(str) {
         if (typeof TextEncoder !== "undefined") {
           return Array.from(new TextEncoder().encode(str));
         }
-        const bytes = [];
-        for (let i = 0; i < str.length; i++) {
-          let code = str.charCodeAt(i);
-          if (code < 0x80) bytes.push(code);
-          else if (code < 0x800) {
-            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
-          } else {
-            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
-          }
-        }
-        return bytes;
+        const encoded = unescape(encodeURIComponent(str));
+        const arr = [];
+        for (let i = 0; i < encoded.length; i++) arr.push(encoded.charCodeAt(i));
+        return arr;
       }
 
-      function encode(text) {
-        let bytes = utf8Encode(text || "https://www.zoo.gov.taipei/");
-        if (bytes.length > 271) bytes = bytes.slice(0, 271);
-
-        // 選擇最小可容納的 Version (1..10)
-        let spec = null;
-        let totalDataCw = 0;
-        for (let v = 1; v <= 10; v++) {
-          const s = VERSIONS_L[v];
-          const cap = s.blocks.reduce((sum, b) => sum + b[0] * b[1], 0);
-          const countBits = v <= 9 ? 8 : 16;
-          const neededBits = 4 + countBits + bytes.length * 8;
-          if (neededBits <= cap * 8) {
-            spec = s;
-            totalDataCw = cap;
+      function buildCodewords(utf8Bytes) {
+        let chosenVersion = -1;
+        for (let v = 1; v <= 20; v++) {
+          const spec = VERSION_M_SPECS[v];
+          const totalDataCap = spec[1] * spec[2] + spec[3] * spec[4];
+          const charCountBits = v <= 9 ? 8 : 16;
+          const overheadBits = 4 + charCountBits;
+          const totalBitsNeeded = overheadBits + utf8Bytes.length * 8;
+          if (Math.ceil(totalBitsNeeded / 8) <= totalDataCap) {
+            chosenVersion = v;
             break;
           }
         }
-        if (!spec) spec = VERSIONS_L[10];
+        if (chosenVersion === -1) {
+          // 超過 V20 容量時自動截斷以保證正常產生
+          utf8Bytes = utf8Bytes.slice(0, 660);
+          chosenVersion = 20;
+        }
 
-        // 建立位元串流 (Byte mode: 0100)
+        const spec = VERSION_M_SPECS[chosenVersion];
+        const totalDataCap = spec[1] * spec[2] + spec[3] * spec[4];
+        const charCountBits = chosenVersion <= 9 ? 8 : 16;
+
+        // Bit buffer
         const bits = [];
         const pushBits = (val, len) => {
           for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1);
         };
-        pushBits(0b0100, 4);
-        pushBits(bytes.length, spec.v <= 9 ? 8 : 16);
-        bytes.forEach(b => pushBits(b, 8));
 
-        const maxBits = totalDataCw * 8;
+        // Mode indicator: Byte mode = 0100 (4 bits)
+        pushBits(0b0100, 4);
+        pushBits(utf8Bytes.length, charCountBits);
+        for (const b of utf8Bytes) pushBits(b, 8);
+
+        // Terminator (up to 4 zero bits)
+        const maxBits = totalDataCap * 8;
         const termLen = Math.min(4, maxBits - bits.length);
         pushBits(0, termLen);
+
+        // Pad to byte boundary
         while (bits.length % 8 !== 0) bits.push(0);
 
-        const dataCw = [];
+        // Convert to data bytes and pad with 0xEC / 0x11
+        const dataBytes = [];
         for (let i = 0; i < bits.length; i += 8) {
-          let byte = 0;
-          for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i + j];
-          dataCw.push(byte);
+          let byteVal = 0;
+          for (let b = 0; b < 8; b++) byteVal = (byteVal << 1) | bits[i + b];
+          dataBytes.push(byteVal);
         }
         const padBytes = [0xec, 0x11];
         let padIdx = 0;
-        while (dataCw.length < totalDataCw) {
-          dataCw.push(padBytes[padIdx % 2]);
+        while (dataBytes.length < totalDataCap) {
+          dataBytes.push(padBytes[padIdx % 2]);
           padIdx++;
         }
 
-        // 分割區塊與計算 RS 錯誤更正碼
-        const dataBlocks = [];
-        const ecBlocks = [];
+        // Split into RS blocks and interleave
+        const blocks = [];
         let offset = 0;
-        spec.blocks.forEach(([count, dLen, ecLen]) => {
-          for (let b = 0; b < count; b++) {
-            const slice = dataCw.slice(offset, offset + dLen);
-            offset += dLen;
-            dataBlocks.push(slice);
-            ecBlocks.push(Array.from(computeRS(slice, ecLen)));
+        for (let b = 0; b < spec[1]; b++) {
+          const slice = dataBytes.slice(offset, offset + spec[2]);
+          offset += spec[2];
+          blocks.push({ data: slice, ec: computeRsEcc(slice, spec[5]) });
+        }
+        for (let b = 0; b < spec[3]; b++) {
+          const slice = dataBytes.slice(offset, offset + spec[4]);
+          offset += spec[4];
+          blocks.push({ data: slice, ec: computeRsEcc(slice, spec[5]) });
+        }
+
+        const interleaved = [];
+        const maxDataLen = Math.max(spec[2], spec[4]);
+        for (let i = 0; i < maxDataLen; i++) {
+          for (const blk of blocks) {
+            if (i < blk.data.length) interleaved.push(blk.data[i]);
           }
-        });
-
-        // 交錯排列資料碼字與 EC 碼字
-        const finalCodewords = [];
-        const maxD = Math.max(...dataBlocks.map(b => b.length));
-        for (let i = 0; i < maxD; i++) {
-          dataBlocks.forEach(b => { if (i < b.length) finalCodewords.push(b[i]); });
         }
-        const maxE = Math.max(...ecBlocks.map(b => b.length));
-        for (let i = 0; i < maxE; i++) {
-          ecBlocks.forEach(b => { if (i < b.length) finalCodewords.push(b[i]); });
+        for (let i = 0; i < spec[5]; i++) {
+          for (const blk of blocks) {
+            if (i < blk.ec.length) interleaved.push(blk.ec[i]);
+          }
         }
 
-        const N = spec.size;
-        const grid = Array.from({ length: N }, () => new Int8Array(N).fill(-1));
-        const isFunc = Array.from({ length: N }, () => new Uint8Array(N));
+        return { version: chosenVersion, codewords: interleaved };
+      }
 
-        const setMod = (r, c, val, func = true) => {
-          if (r >= 0 && r < N && c >= 0 && c < N) {
-            grid[r][c] = val ? 1 : 0;
-            if (func) isFunc[r][c] = 1;
+      function createBaseMatrix(version) {
+        const size = version * 4 + 17;
+        const modules = Array.from({ length: size }, () => new Uint8Array(size));
+        const isFunction = Array.from({ length: size }, () => new Uint8Array(size));
+
+        const setFunc = (r, c, val) => {
+          if (r >= 0 && r < size && c >= 0 && c < size) {
+            modules[r][c] = val ? 1 : 0;
+            isFunction[r][c] = 1;
           }
         };
 
-        // 繪製 Finder Patterns + Separators
-        const drawFinder = (r0, c0) => {
+        // 1. Finder patterns (7x7) + 1-module white separator
+        const placeFinder = (topR, leftC) => {
           for (let dr = -1; dr <= 7; dr++) {
             for (let dc = -1; dc <= 7; dc++) {
-              const r = r0 + dr, c = c0 + dc;
-              if (r < 0 || r >= N || c < 0 || c >= N) continue;
+              const r = topR + dr;
+              const c = leftC + dc;
+              if (r < 0 || r >= size || c < 0 || c >= size) continue;
               const inOuter = dr >= 0 && dr <= 6 && dc >= 0 && dc <= 6;
-              const inInner = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
-              const onBorder = dr === 0 || dr === 6 || dc === 0 || dc === 6;
-              setMod(r, c, inOuter && (onBorder || inInner) ? 1 : 0, true);
+              const inRing = dr === 0 || dr === 6 || dc === 0 || dc === 6;
+              const inCenter = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+              setFunc(r, c, inOuter && (inRing || inCenter) ? 1 : 0);
             }
           }
         };
-        drawFinder(0, 0);
-        drawFinder(0, N - 7);
-        drawFinder(N - 7, 0);
+        placeFinder(0, 0);
+        placeFinder(0, size - 7);
+        placeFinder(size - 7, 0);
 
-        // 繪製 Alignment Patterns
-        const alignPos = spec.align;
-        for (let i = 0; i < alignPos.length; i++) {
-          for (let j = 0; j < alignPos.length; j++) {
-            const rCenter = alignPos[i], cCenter = alignPos[j];
-            if (isFunc[rCenter][cCenter]) continue;
+        // 2. Timing patterns
+        for (let i = 8; i < size - 8; i++) {
+          const bit = i % 2 === 0 ? 1 : 0;
+          setFunc(6, i, bit);
+          setFunc(i, 6, bit);
+        }
+
+        // 3. Alignment patterns
+        const centers = ALIGNMENT_TABLE[version] || [];
+        for (const rCenter of centers) {
+          for (const cCenter of centers) {
+            const overlapsTopLeft = rCenter <= 8 && cCenter <= 8;
+            const overlapsTopRight = rCenter <= 8 && cCenter >= size - 9;
+            const overlapsBottomLeft = rCenter >= size - 9 && cCenter <= 8;
+            if (overlapsTopLeft || overlapsTopRight || overlapsBottomLeft) continue;
+
             for (let dr = -2; dr <= 2; dr++) {
               for (let dc = -2; dc <= 2; dc++) {
-                const dark = Math.max(Math.abs(dr), Math.abs(dc)) !== 1;
-                setMod(rCenter + dr, cCenter + dc, dark ? 1 : 0, true);
+                const isDark = Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0);
+                setFunc(rCenter + dr, cCenter + dc, isDark ? 1 : 0);
               }
             }
           }
         }
 
-        // 繪製 Timing Patterns
-        for (let i = 8; i < N - 8; i++) {
-          const bit = i % 2 === 0 ? 1 : 0;
-          if (!isFunc[6][i]) setMod(6, i, bit, true);
-          if (!isFunc[i][6]) setMod(i, 6, bit, true);
-        }
-
-        // Dark Module 與保留 Format / Version Info 區域
-        setMod(N - 8, 8, 1, true);
-        for (let i = 0; i < 9; i++) {
-          if (!isFunc[8][i]) isFunc[8][i] = 1;
-          if (!isFunc[i][8]) isFunc[i][8] = 1;
+        // 4. Reserve Format Information modules + Dark Module
+        for (let i = 0; i <= 8; i++) {
+          if (i !== 6) {
+            isFunction[8][i] = 1;
+            isFunction[i][8] = 1;
+          }
         }
         for (let i = 0; i < 8; i++) {
-          isFunc[8][N - 1 - i] = 1;
-          isFunc[N - 1 - i][8] = 1;
+          isFunction[8][size - 1 - i] = 1;
+          if (i < 7) isFunction[size - 1 - i][8] = 1;
         }
-        if (spec.v >= 7) {
-          let d = spec.v << 12;
-          for (let i = 17; i >= 12; i--) {
-            if ((d >> i) & 1) d ^= (0x1f25 << (i - 12));
+        setFunc(size - 8, 8, 1); // Mandatory dark module
+
+        // 5. Version Information (for Version >= 7)
+        if (version >= 7) {
+          let rem = version << 12;
+          for (let i = 5; i >= 0; i--) {
+            if ((rem >> (i + 12)) & 1) rem ^= 0x1f25 << i;
           }
-          const verBits = (spec.v << 12) | d;
+          const verBits = (version << 12) | rem;
           for (let i = 0; i < 18; i++) {
             const bit = (verBits >> i) & 1;
             const r = Math.floor(i / 3);
-            const c = N - 11 + (i % 3);
-            setMod(r, c, bit, true);
-            setMod(c, r, bit, true);
+            const c = size - 11 + (i % 3);
+            setFunc(r, c, bit);
+            setFunc(c, r, bit);
           }
         }
 
-        // Zigzag 填入資料位元
-        const allBits = [];
-        finalCodewords.forEach(cw => {
-          for (let b = 7; b >= 0; b--) allBits.push((cw >> b) & 1);
-        });
+        return { size, modules, isFunction };
+      }
 
+      function placeDataBits(base, codewords) {
+        const { size, modules, isFunction } = base;
         let bitIdx = 0;
+        const totalBits = codewords.length * 8;
         let upward = true;
-        for (let col = N - 1; col >= 1; col -= 2) {
-          if (col === 6) col--;
-          for (let step = 0; step < N; step++) {
-            const row = upward ? (N - 1 - step) : step;
+
+        for (let rightCol = size - 1; rightCol >= 1; rightCol -= 2) {
+          if (rightCol === 6) rightCol = 5; // Skip vertical timing column
+          for (let step = 0; step < size; step++) {
+            const r = upward ? size - 1 - step : step;
             for (let dx = 0; dx < 2; dx++) {
-              const c = col - dx;
-              if (!isFunc[row][c]) {
-                grid[row][c] = bitIdx < allBits.length ? allBits[bitIdx++] : 0;
+              const c = rightCol - dx;
+              if (!isFunction[r][c]) {
+                let bit = 0;
+                if (bitIdx < totalBits) {
+                  const cw = codewords[bitIdx >> 3];
+                  bit = (cw >> (7 - (bitIdx & 7))) & 1;
+                  bitIdx++;
+                }
+                modules[r][c] = bit;
               }
             }
           }
           upward = !upward;
         }
+      }
 
-        // 測試 8 種 Mask 並挑選最佳懲罰分數最低者
-        const maskFn = [
-          (r, c) => (r + c) % 2 === 0,
-          (r, c) => r % 2 === 0,
-          (r, c) => c % 3 === 0,
-          (r, c) => (r + c) % 3 === 0,
-          (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
-          (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
-          (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
-          (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
-        ];
+      function applyMaskAndFormat(base, maskId) {
+        const { size, modules, isFunction } = base;
+        const out = modules.map(row => new Uint8Array(row));
 
-        const applyFormatInfo = (mat, maskIdx) => {
-          const data = (0b01 << 3) | maskIdx; // ECC L = 01
-          let d = data << 10;
-          for (let i = 14; i >= 10; i--) {
-            if ((d >> i) & 1) d ^= (0x537 << (i - 10));
+        const maskCondition = (r, c) => {
+          switch (maskId) {
+            case 0: return (r + c) % 2 === 0;
+            case 1: return r % 2 === 0;
+            case 2: return c % 3 === 0;
+            case 3: return (r + c) % 3 === 0;
+            case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0;
+            case 5: return ((r * c) % 2 + (r * c) % 3) === 0;
+            case 6: return (((r * c) % 2) + ((r * c) % 3)) % 2 === 0;
+            case 7: return (((r + c) % 2) + ((r * c) % 3)) % 2 === 0;
+            default: return false;
           }
-          const fmt = ((data << 10) | d) ^ 0x5412;
-          for (let i = 0; i <= 5; i++) mat[8][i] = (fmt >> i) & 1;
-          mat[8][7] = (fmt >> 6) & 1;
-          mat[8][8] = (fmt >> 7) & 1;
-          mat[7][8] = (fmt >> 8) & 1;
-          for (let i = 9; i <= 14; i++) mat[14 - i][8] = (fmt >> i) & 1;
-
-          for (let i = 0; i <= 7; i++) mat[N - 1 - i][8] = (fmt >> i) & 1;
-          for (let i = 8; i <= 14; i++) mat[8][N - 15 + i] = (fmt >> i) & 1;
         };
 
-        let bestMat = null;
-        let bestScore = Infinity;
-
-        for (let m = 0; m < 8; m++) {
-          const candidate = grid.map((row, r) =>
-            row.map((val, c) => (isFunc[r][c] ? val : (val ^ (maskFn[m](r, c) ? 1 : 0))))
-          );
-          applyFormatInfo(candidate, m);
-
-          // 簡易評分規則（相鄰同色 + 2x2 同色區塊 + 黑白比例）
-          let score = 0;
-          let darkCount = 0;
-          for (let r = 0; r < N; r++) {
-            let runH = 1, runV = 1;
-            for (let c = 0; c < N; c++) {
-              if (candidate[r][c] === 1) darkCount++;
-              if (c > 0) {
-                if (candidate[r][c] === candidate[r][c - 1]) {
-                  runH++;
-                  if (runH === 5) score += 3;
-                  else if (runH > 5) score += 1;
-                } else runH = 1;
-
-                if (candidate[c][r] === candidate[c - 1][r]) {
-                  runV++;
-                  if (runV === 5) score += 3;
-                  else if (runV > 5) score += 1;
-                } else runV = 1;
-              }
-              if (r < N - 1 && c < N - 1) {
-                const sum2x2 = candidate[r][c] + candidate[r + 1][c] + candidate[r][c + 1] + candidate[r + 1][c + 1];
-                if (sum2x2 === 0 || sum2x2 === 4) score += 3;
-              }
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (!isFunction[r][c] && maskCondition(r, c)) {
+              out[r][c] ^= 1;
             }
           }
-          const pct = (darkCount * 100) / (N * N);
-          score += Math.abs(Math.round(pct) - 50) * 2;
+        }
+
+        // Standard Format Information for ECC Level M (00) + maskId (0..7)
+        const fmtData = (0b00 << 3) | maskId;
+        let rem = fmtData << 10;
+        for (let i = 4; i >= 0; i--) {
+          if ((rem >> (i + 10)) & 1) rem ^= 0x537 << i;
+        }
+        const fmtBits = ((fmtData << 10) | rem) ^ 0x5412;
+
+        // Bit 14 (MSB) to Bit 0 (LSB) placement per ISO/IEC 18004 Figure 19
+        const getBit = k => (fmtBits >> k) & 1;
+
+        // Copy 1: Top-left around finder
+        const topLeftCoords = [
+          [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
+          [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8]
+        ];
+        for (let idx = 0; idx < 15; idx++) {
+          const [r, c] = topLeftCoords[idx];
+          out[r][c] = getBit(14 - idx);
+        }
+
+        // Copy 2: Bottom-left vertical & Top-right horizontal
+        for (let idx = 0; idx < 7; idx++) {
+          out[size - 1 - idx][8] = getBit(14 - idx);
+        }
+        for (let idx = 7; idx < 15; idx++) {
+          out[8][size - 15 + idx] = getBit(14 - idx);
+        }
+
+        return out;
+      }
+
+      function computePenalty(matrix) {
+        const size = matrix.length;
+        let penalty = 0;
+
+        // N1: 5+ consecutive same-color modules in row/col
+        for (let r = 0; r < size; r++) {
+          let runColor = matrix[r][0], runLen = 1;
+          for (let c = 1; c < size; c++) {
+            if (matrix[r][c] === runColor) {
+              runLen++;
+            } else {
+              if (runLen >= 5) penalty += 3 + (runLen - 5);
+              runColor = matrix[r][c];
+              runLen = 1;
+            }
+          }
+          if (runLen >= 5) penalty += 3 + (runLen - 5);
+        }
+        for (let c = 0; c < size; c++) {
+          let runColor = matrix[0][c], runLen = 1;
+          for (let r = 1; r < size; r++) {
+            if (matrix[r][c] === runColor) {
+              runLen++;
+            } else {
+              if (runLen >= 5) penalty += 3 + (runLen - 5);
+              runColor = matrix[r][c];
+              runLen = 1;
+            }
+          }
+          if (runLen >= 5) penalty += 3 + (runLen - 5);
+        }
+
+        // N2: 2x2 blocks of same color
+        for (let r = 0; r < size - 1; r++) {
+          for (let c = 0; c < size - 1; c++) {
+            const v = matrix[r][c];
+            if (v === matrix[r][c + 1] && v === matrix[r + 1][c] && v === matrix[r + 1][c + 1]) {
+              penalty += 3;
+            }
+          }
+        }
+
+        // N4: Dark module balance around 50%
+        let darkCount = 0;
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) darkCount += matrix[r][c];
+        }
+        const pct = (darkCount * 100) / (size * size);
+        const dev = Math.floor(Math.abs(pct - 50) / 5);
+        penalty += dev * 10;
+
+        return penalty;
+      }
+
+      function generate(text) {
+        const bytes = encodeUtf8Bytes(text);
+        const { version, codewords } = buildCodewords(bytes);
+        const base = createBaseMatrix(version);
+        placeDataBits(base, codewords);
+
+        let bestMatrix = null;
+        let bestScore = Infinity;
+        for (let maskId = 0; maskId < 8; maskId++) {
+          const candidate = applyMaskAndFormat(base, maskId);
+          const score = computePenalty(candidate);
           if (score < bestScore) {
             bestScore = score;
-            bestMat = candidate;
+            bestMatrix = candidate;
           }
         }
-
-        return bestMat;
+        return { version, matrix: bestMatrix };
       }
 
-      function renderToCanvas(canvas, text) {
-        const matrix = encode(text);
-        const N = matrix.length;
+      function renderDual(svgContainer, canvasEl, text) {
+        const { version, matrix } = generate(text);
+        const modCount = matrix.length;
         const quietZone = 4;
-        const totalModules = N + quietZone * 2;
-        const size = canvas.width;
-        const ctx = canvas.getContext("2d");
+        const totalModules = modCount + quietZone * 2;
 
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, size, size);
+        // 1. 無鋸齒 SVG 渲染
+        if (svgContainer) {
+          let rects = `<rect x="0" y="0" width="${totalModules}" height="${totalModules}" fill="#FFFFFF"/>`;
+          for (let r = 0; r < modCount; r++) {
+            for (let c = 0; c < modCount; c++) {
+              if (matrix[r][c]) {
+                rects += `<rect x="${c + quietZone}" y="${r + quietZone}" width="1" height="1" fill="#0F172A"/>`;
+              }
+            }
+          }
+          svgContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalModules} ${totalModules}" shape-rendering="crispEdges">${rects}</svg>`;
+        }
 
-        const cellSize = size / totalModules;
-        ctx.fillStyle = "#0F172A";
-        for (let r = 0; r < N; r++) {
-          for (let c = 0; c < N; c++) {
-            if (matrix[r][c] === 1) {
-              const x = Math.floor((c + quietZone) * cellSize);
-              const y = Math.floor((r + quietZone) * cellSize);
-              const w = Math.ceil((c + quietZone + 1) * cellSize) - x;
-              const h = Math.ceil((r + quietZone + 1) * cellSize) - y;
-              ctx.fillRect(x, y, w, h);
+        // 2. 整數像素高清 PNG Canvas 渲染
+        if (canvasEl) {
+          const scale = Math.max(8, Math.floor(480 / totalModules));
+          const pxSize = totalModules * scale;
+          canvasEl.width = pxSize;
+          canvasEl.height = pxSize;
+          const ctx = canvasEl.getContext("2d");
+          ctx.imageSmoothingEnabled = false;
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, pxSize, pxSize);
+          ctx.fillStyle = "#0F172A";
+          for (let r = 0; r < modCount; r++) {
+            for (let c = 0; c < modCount; c++) {
+              if (matrix[r][c]) {
+                ctx.fillRect((c + quietZone) * scale, (r + quietZone) * scale, scale, scale);
+              }
             }
           }
         }
+
+        return { version, size: modCount };
       }
 
-      return { renderToCanvas };
+      return { generate, renderDual };
     })();
 
     /* ==========================================================================
-       五、台灣標準筆順「正」字 SVG 繪製器
+       五、全螢幕切換（Fullscreen API + Pseudo-Fullscreen 雙機制）與字體縮放
        ========================================================================== */
-    function renderZhengWordSvg(strokes) {
-      // strokes: 1 ~ 5
-      // 1: 上橫, 2: 中豎, 3: 右短橫, 4: 左短豎, 5: 底橫
-      let paths = "";
-      if (strokes >= 1) paths += `<line x1="6" y1="8" x2="34" y2="8" />`;
-      if (strokes >= 2) paths += `<line x1="20" y1="8" x2="20" y2="34" />`;
-      if (strokes >= 3) paths += `<line x1="20" y1="20" x2="32" y2="20" />`;
-      if (strokes >= 4) paths += `<line x1="10" y1="18" x2="10" y2="34" />`;
-      if (strokes >= 5) paths += `<line x1="4" y1="34" x2="36" y2="34" />`;
-
-      return `<svg width="32" height="32" viewBox="0 0 40 40" stroke="#DC2626" stroke-width="3.6" stroke-linecap="round" fill="none" aria-label="${strokes}畫">${paths}</svg>`;
-    }
-
-    function buildZhengTallyHtml(count) {
-      if (count <= 0) {
-        return `<span style="color:#94A3B8; font-size:0.85rem;">尚未記錄</span>`;
-      }
-      const fullWords = Math.floor(count / 5);
-      const rem = count % 5;
-      let html = "";
-      for (let i = 0; i < fullWords; i++) html += renderZhengWordSvg(5);
-      if (rem > 0) html += renderZhengWordSvg(rem);
-      return html;
-    }
-
-    /* ==========================================================================
-       六、頂部通知橫幅、字體縮放、全螢幕與小組 4 人交接系統
-       ========================================================================== */
-    let toastTimeout = null;
-    function showSwitchToast(msg) {
-      const el = document.getElementById("switchToast");
-      el.textContent = msg;
-      el.classList.add("show");
-      if (toastTimeout) clearTimeout(toastTimeout);
-      toastTimeout = setTimeout(() => {
-        el.classList.remove("show");
-      }, 2600);
-    }
-
-    function applyFontSize(sizeKey) {
-      appState.fontSize = sizeKey;
-      document.documentElement.setAttribute("data-font", sizeKey);
-      document.querySelectorAll(".font-btn").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.fontVal === sizeKey);
-      });
-      saveState();
-    }
-
-    function updateFullscreenButtonUI(isFull) {
+    function updateFullscreenButtonVisual(isFull) {
       const btn = document.getElementById("btnToggleFullscreen");
       const svg = document.getElementById("fullscreenIconSvg");
+      if (!btn || !svg) return;
       if (isFull) {
         btn.setAttribute("data-tooltip", "退出全螢幕模式");
         btn.setAttribute("aria-label", "退出全螢幕模式");
@@ -2468,108 +2613,143 @@
       const isPseudoFull = document.body.classList.contains("pseudo-fullscreen");
 
       if (isNativeFull) {
-        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        const exitFn = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exitFn) exitFn.call(document).catch(() => {});
         document.body.classList.remove("pseudo-fullscreen");
-        updateFullscreenButtonUI(false);
+        updateFullscreenButtonVisual(false);
         return;
       }
 
       if (isPseudoFull) {
         document.body.classList.remove("pseudo-fullscreen");
-        updateFullscreenButtonUI(false);
+        updateFullscreenButtonVisual(false);
+        showSwitchToast("🖥️ 已退出全螢幕模式");
         return;
       }
 
-      // 嘗試原生 Fullscreen API，若受限於 iPad Safari 或 iFrame 則自動啟用 Pseudo-Fullscreen
-      const req = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
-      if (req) {
+      const reqFn = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+      if (reqFn) {
         try {
-          const p = req.call(docEl);
-          if (p && typeof p.then === "function") {
-            p.then(() => {
-              updateFullscreenButtonUI(true);
+          const promise = reqFn.call(docEl);
+          if (promise && typeof promise.then === "function") {
+            promise.then(() => {
+              updateFullscreenButtonVisual(true);
             }).catch(() => {
               document.body.classList.add("pseudo-fullscreen");
-              updateFullscreenButtonUI(true);
+              updateFullscreenButtonVisual(true);
+              showSwitchToast("🖥️ 已進入滿版專注模式");
             });
           } else {
-            updateFullscreenButtonUI(true);
+            updateFullscreenButtonVisual(true);
           }
         } catch (e) {
           document.body.classList.add("pseudo-fullscreen");
-          updateFullscreenButtonUI(true);
+          updateFullscreenButtonVisual(true);
+          showSwitchToast("🖥️ 已進入滿版專注模式");
         }
       } else {
         document.body.classList.add("pseudo-fullscreen");
-        updateFullscreenButtonUI(true);
+        updateFullscreenButtonVisual(true);
+        showSwitchToast("🖥️ 已進入滿版專注模式");
       }
     }
 
     document.addEventListener("fullscreenchange", () => {
-      const isFull = Boolean(document.fullscreenElement);
-      if (!isFull) document.body.classList.remove("pseudo-fullscreen");
-      updateFullscreenButtonUI(isFull);
+      const isFull = Boolean(document.fullscreenElement || document.body.classList.contains("pseudo-fullscreen"));
+      updateFullscreenButtonVisual(isFull);
     });
+    document.addEventListener("webkitfullscreenchange", () => {
+      const isFull = Boolean(document.webkitFullscreenElement || document.body.classList.contains("pseudo-fullscreen"));
+      updateFullscreenButtonVisual(isFull);
+    });
+
+    function applyFontSize(sizeVal) {
+      const valid = ["standard", "large", "xlarge"].includes(sizeVal) ? sizeVal : "large";
+      appState.fontSize = valid;
+      document.documentElement.setAttribute("data-font", valid);
+      document.querySelectorAll(".font-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.fontVal === valid);
+      });
+      saveState();
+    }
+
+    /* ==========================================================================
+       六、小組 4 人共用快捷切換與全螢幕防呆交接 (Group Handover System)
+       ========================================================================== */
+    let toastTimeoutId = null;
+    function showSwitchToast(msg) {
+      const toast = document.getElementById("switchToast");
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add("show");
+      if (toastTimeoutId) clearTimeout(toastTimeoutId);
+      toastTimeoutId = setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2400);
+    }
 
     function getStudentTaskStats(seat) {
       const rec = ensureStudentRecord(seat);
-      const stars = Object.values(rec.detective).filter(m => m.unlocked).length;
-      const detDone = stars === 3;
-      const swDone = Boolean(rec.stopwatch.saved);
-      const toyDone = Boolean(rec.toy.saved);
-      const completedCount = (detDone ? 1 : 0) + (swDone ? 1 : 0) + (toyDone ? 1 : 0);
-      return { stars, detDone, swDone, toyDone, completedCount };
+      const stars = DETECTIVE_MISSIONS.reduce((acc, m) => acc + (rec.detective[m.id]?.unlocked ? 1 : 0), 0);
+      const detectiveDone = stars === DETECTIVE_MISSIONS.length;
+      const swDone = Boolean(rec.stopwatch?.saved);
+      const toyDone = Boolean(rec.toy?.saved);
+      const completedCount = (detectiveDone ? 1 : 0) + (swDone ? 1 : 0) + (toyDone ? 1 : 0);
+      return { stars, detectiveDone, swDone, toyDone, completedCount };
     }
 
     function stopAllRunningTimersOnSwitch() {
-      // 切換座號前先暫停正在倒數的計時器
+      // 停止偵探社 15 秒倒數
       Object.keys(observeTimers).forEach(id => {
         clearInterval(observeTimers[id]);
         delete observeTimers[id];
+        delete observeCountdownLeft[id];
       });
+      // 暫停行為碼錶
       if (swIntervalId) {
         clearInterval(swIntervalId);
         swIntervalId = null;
-        swIsRunning = false;
       }
+      swIsRunning = false;
     }
 
-    function switchToStudentSeat(targetSeat, announce = true) {
-      saveState();
+    function switchToStudentSeat(seat, withToast = true) {
       stopAllRunningTimersOnSwitch();
-      appState.currentSeat = targetSeat;
-      ensureStudentRecord(targetSeat);
+      appState.currentSeat = seat;
+      ensureStudentRecord(seat);
       saveState();
       renderAllUI();
-      if (announce) {
+      if (withToast) {
         playSwitchSound();
-        showSwitchToast(`✅ 已切換為 ${targetSeat} 探險中！`);
+        showSwitchToast(`✅ 已切換為：${appState.className} ${seat}`);
       }
     }
 
     function renderGroupSeatBar() {
       document.getElementById("displayClassBadge").textContent = `🏫 ${appState.className}`;
+      const whoText = `👉 目前：${appState.currentSeat}`;
+      ["detectiveCurrentWho", "stopwatchCurrentWho", "toyCurrentWho", "reportCurrentWho"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = whoText;
+      });
+
       const grid = document.getElementById("groupSeatGrid");
       grid.innerHTML = "";
-
       appState.groupSeats.forEach(seat => {
-        const isCurrent = seat === appState.currentSeat;
         const stats = getStudentTaskStats(seat);
-        const isAllDone = stats.completedCount === 3;
-
+        const isCurrent = seat === appState.currentSeat;
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = `seat-card-btn ${isCurrent ? "active" : ""}`;
+        btn.className = `seat-card-btn${isCurrent ? " active" : ""}`;
         btn.innerHTML = `
           <div class="seat-card-top">
             <span class="seat-number-text">${seat}</span>
-            <span class="seat-progress-badge ${isAllDone ? "done" : ""}">
-              ${isAllDone ? "🏆 完成" : `${stats.completedCount}/3`}
+            <span class="seat-progress-badge${stats.completedCount === 3 ? " done" : ""}">
+              ${stats.completedCount === 3 ? "🏆 完成" : `${stats.completedCount}/3`}
             </span>
           </div>
           <div class="seat-status-line">
-            ${isCurrent ? "👉 目前操作中" : "點擊切換成此座號"}
+            ${isCurrent ? "👉 目前操作中" : "點擊切換至此座號"}
           </div>
         `;
         btn.addEventListener("click", () => {
@@ -2581,35 +2761,28 @@
         });
         grid.appendChild(btn);
       });
-
-      const whoLabel = `👉 目前：${appState.currentSeat}`;
-      document.getElementById("detectiveCurrentWho").textContent = whoLabel;
-      document.getElementById("stopwatchCurrentWho").textContent = whoLabel;
-      document.getElementById("toyCurrentWho").textContent = whoLabel;
-      document.getElementById("reportCurrentWho").textContent = whoLabel;
     }
 
     function openHandoverModal() {
-      saveState();
       stopAllRunningTimersOnSwitch();
+      saveState();
       playSwitchSound();
 
-      const cur = appState.currentSeat;
-      document.getElementById("handoverTitle").textContent = `🔒 ${cur} 的探險紀錄已安全存檔！`;
-      document.getElementById("handoverDesc").textContent =
-        "請把 iPad 交給下一位組員，並請本人點擊自己的座號開始任務：";
-
+      document.getElementById("handoverTitle").textContent =
+        `🔒 ${appState.currentSeat} 的探險紀錄已安全存檔！`;
       const grid = document.getElementById("handoverSeatGrid");
       grid.innerHTML = "";
+
       appState.groupSeats.forEach(seat => {
         const stats = getStudentTaskStats(seat);
+        const isPrev = seat === appState.currentSeat;
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "handover-seat-btn";
         btn.innerHTML = `
-          <span>🙋 我是 ${seat}</span>
-          <span style="font-size:0.85rem; font-weight:700; margin-top:4px;">
-            目前進度：${stats.completedCount}/3（⭐${stats.stars}）
+          <span style="font-size: 1.35rem; font-weight: 900;">🙋 ${seat}${isPrev ? "（剛才操作）" : ""}</span>
+          <span style="font-size: 0.9rem; color: var(--text-muted); margin-top: 4px;">
+            目前進度：${stats.completedCount} / 3 項任務
           </span>
         `;
         btn.addEventListener("click", () => {
@@ -2623,276 +2796,298 @@
     }
 
     /* ==========================================================================
-       七、分頁 1：動物偵探社渲染與四階段防偷看邏輯
+       七、分頁 1：動物偵探社（四階段防偷看觀察流程）
        ========================================================================== */
     function renderDetectiveTab() {
-      const rec = getCurrentRecord();
       const container = document.getElementById("detectiveCardsContainer");
+      const rec = getCurrentRecord();
       container.innerHTML = "";
 
-      DETECTIVE_MISSIONS.forEach(mission => {
-        const st = rec.detective[mission.id];
-        const card = document.createElement("div");
-        card.className = `mission-card ${st.unlocked ? "completed-card" : ""}`;
+      DETECTIVE_MISSIONS.forEach(m => {
+        const dState = rec.detective[m.id];
+        const isEditLocked = dState.unlocked && !dState.tempEditUnlocked;
 
-        // 1. 已完成防誤改保護鎖（若已解鎖揭曉，預設顯示保護鎖，可手動點解鎖重做）
-        const isEditLocked = st.unlocked && !st.tempEditUnlocked;
-        let lockBannerHtml = "";
-        if (st.unlocked) {
-          lockBannerHtml = `
-            <div class="anti-edit-lock-bar">
-              <span>🔒 ${appState.currentSeat} 已完成本關卡紀錄（獲得 ⭐ 1 顆星星）</span>
-              ${isEditLocked
-                ? `<button type="button" class="unlock-edit-btn" data-det-reopen="${mission.id}">🔓 若需重做請點此解鎖修改</button>`
-                : `<span style="font-size:0.86rem;">✏️ 已開啟修改模式</span>`
-              }
-            </div>
+        const card = document.createElement("article");
+        card.className = `mission-card${dState.unlocked ? " completed-card" : ""}`;
+
+        // 已完成防誤改保護鎖
+        if (isEditLocked) {
+          const lockBar = document.createElement("div");
+          lockBar.className = "anti-edit-lock-bar";
+          lockBar.innerHTML = `
+            <span>🔒 ${appState.currentSeat} 已完成本題破案紀錄</span>
+            <button type="button" class="unlock-edit-btn">🔓 若需重做請點此解鎖修改</button>
           `;
+          lockBar.querySelector("button").addEventListener("click", () => {
+            dState.tempEditUnlocked = true;
+            playClickSound();
+            renderDetectiveTab();
+          });
+          card.appendChild(lockBar);
         }
 
-        // 2. 步驟 1：直覺猜測鎖定
-        const step1Html = `
-          <div class="step-box">
-            <div class="step-title">步驟 1：先憑直覺猜一猜並鎖定</div>
-            <div class="guess-btn-row">
-              <button type="button" class="choice-btn ${st.guess === "true" ? "selected" : ""}"
-                      data-det-guess="${mission.id}:true" ${st.lockedGuess ? "disabled" : ""}>
-                ⭕ 我覺得是真的
-              </button>
-              <button type="button" class="choice-btn ${st.guess === "false" ? "selected" : ""}"
-                      data-det-guess="${mission.id}:false" ${st.lockedGuess ? "disabled" : ""}>
-                ❌ 我覺得是假的
-              </button>
-            </div>
-            ${st.lockedGuess
-              ? `<div style="font-weight:900; color:var(--forest-dark);">✅ 已鎖定猜測：${st.guess === "true" ? "⭕ 我覺得是真的" : "❌ 我覺得是假的"}</div>`
-              : `<button type="button" class="primary-action-btn" data-det-lock-guess="${mission.id}" ${!st.guess ? "disabled" : ""}>
-                   🔒 鎖定我的猜測
-                 </button>`
-            }
+        const bodyWrap = document.createElement("div");
+        bodyWrap.className = `locked-body-wrapper${isEditLocked ? " is-locked" : ""}`;
+
+        // 卡片標題與星等
+        const header = document.createElement("div");
+        header.className = "detective-header";
+        header.innerHTML = `
+          <span class="zone-tag">${m.zone}</span>
+          <span class="star-status">${dState.unlocked ? "⭐ 已獲得偵探星" : "☆ 尚未破案"}</span>
+        `;
+        bodyWrap.appendChild(header);
+
+        const qTitle = document.createElement("h3");
+        qTitle.className = "myth-question";
+        qTitle.textContent = m.title;
+        bodyWrap.appendChild(qTitle);
+
+        const qPrompt = document.createElement("p");
+        qPrompt.style.marginTop = "0";
+        qPrompt.textContent = m.prompt;
+        bodyWrap.appendChild(qPrompt);
+
+        // 關卡 1：先鎖定直覺猜測
+        const step1 = document.createElement("div");
+        step1.className = "step-box";
+        step1.innerHTML = `
+          <div class="step-title">第 1 步：不看解說牌，先選你的直覺猜測</div>
+          <div class="guess-btn-row">
+            <button type="button" class="choice-btn${dState.guess === "true" ? " selected" : ""}" data-guess="true" ${dState.lockedGuess ? "disabled" : ""}>
+              ⭕ 我覺得是真的
+            </button>
+            <button type="button" class="choice-btn${dState.guess === "false" ? " selected" : ""}" data-guess="false" ${dState.lockedGuess ? "disabled" : ""}>
+              ❌ 我覺得是假的
+            </button>
           </div>
         `;
+        step1.querySelectorAll("[data-guess]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            if (dState.lockedGuess) return;
+            dState.guess = btn.dataset.guess;
+            saveState();
+            playClickSound();
+            renderDetectiveTab();
+          });
+        });
 
-        // 3. 步驟 2：現場觀察 15 秒倒數（鎖定猜測後才顯示）
-        let step2Html = "";
-        if (st.lockedGuess) {
-          const isCounting = Boolean(observeTimers[mission.id]);
-          const leftSec = observeCountdownLeft[mission.id] !== undefined ? observeCountdownLeft[mission.id] : OBSERVE_SECONDS;
-          const pct = st.observed ? 100 : Math.round(((OBSERVE_SECONDS - leftSec) / OBSERVE_SECONDS) * 100);
-
-          step2Html = `
-            <div class="step-box">
-              <div class="step-title">步驟 2：眼睛盯著動物觀察 15 秒</div>
-              ${st.observed
-                ? `<div style="font-weight:900; color:var(--forest-dark);">🎉 已完成 15 秒現場觀察！請繼續完成步驟 3。</div>`
-                : `<button type="button" class="handover-trigger-btn" style="width:100%;" data-det-observe="${mission.id}" ${isCounting ? "disabled" : ""}>
-                     ${isCounting ? `⏳ 正在專心觀察中... 剩餘 ${leftSec} 秒` : "👁️ 開始現場觀察 15 秒"}
-                   </button>`
-              }
-              <div class="observe-timer-bar">
-                <div class="observe-timer-fill" id="obs-fill-${mission.id}" style="width:${pct}%;"></div>
-              </div>
-            </div>
-          `;
+        if (!dState.lockedGuess) {
+          const lockGuessBtn = document.createElement("button");
+          lockGuessBtn.type = "button";
+          lockGuessBtn.className = "primary-action-btn";
+          lockGuessBtn.textContent = "🔒 鎖定我的猜測，開始現場觀察";
+          lockGuessBtn.disabled = !dState.guess;
+          lockGuessBtn.addEventListener("click", () => {
+            if (!dState.guess) return;
+            dState.lockedGuess = true;
+            saveState();
+            playSwitchSound();
+            renderDetectiveTab();
+          });
+          step1.appendChild(lockGuessBtn);
+        } else {
+          const lockedBadge = document.createElement("div");
+          lockedBadge.style.fontWeight = "900";
+          lockedBadge.style.color = "var(--sky-dark)";
+          lockedBadge.textContent = `✅ 已鎖定直覺猜測：${dState.guess === "true" ? "⭕ 我覺得是真的" : "❌ 我覺得是假的"}`;
+          step1.appendChild(lockedBadge);
         }
+        bodyWrap.appendChild(step1);
 
-        // 4. 步驟 3：回報目擊證據（15 秒觀察完成後才展開，防偷看！）
-        let step3Html = "";
-        if (st.lockedGuess && st.observed) {
-          const optsHtml = mission.evidenceOptions.map(opt => `
-            <button type="button" class="evidence-btn ${st.evidence === opt ? "selected" : ""}"
-                    data-det-ev="${mission.id}" data-ev-val="${opt}">
-              ${st.evidence === opt ? "🔘" : "⚪"} ${opt}
-            </button>
-          `).join("");
+        // 關卡 2：15 秒現場觀察倒數計時器
+        if (dState.lockedGuess) {
+          const step2 = document.createElement("div");
+          step2.className = "step-box";
+          const leftSec = observeCountdownLeft[m.id];
+          const isCounting = typeof leftSec === "number" && leftSec > 0;
 
-          step3Html = `
-            <div class="step-box">
-              <div class="step-title">步驟 3：勾選你在現場看到的證據</div>
-              <div class="evidence-options">${optsHtml}</div>
-            </div>
-          `;
-        }
-
-        // 5. 步驟 4：現場解鎖揭曉真相（勾選證據後才顯示）
-        let step4Html = "";
-        if (st.lockedGuess && st.observed && st.evidence) {
-          if (st.unlocked) {
-            const guessRight = st.guess === mission.correctGuess;
-            step4Html = `
-              <div class="truth-reveal-box">
-                <h4>${mission.truthTitle}</h4>
-                <p style="margin: 0 0 8px;">${mission.truthDesc}</p>
-                <div style="font-weight:900; color:var(--orange-dark);">
-                  🎯 你的直覺猜測：${guessRight ? "神準猜對了！" : "差一點點，現場觀察讓你發現真相囉！"}
-                </div>
-              </div>
-            `;
-          } else if (!appState.teacherSettings.strictMode) {
-            // 自主模式：直接顯示按鈕揭曉
-            step4Html = `
-              <div class="step-box">
-                <div class="step-title">步驟 4：揭曉動物真相</div>
-                <button type="button" class="primary-action-btn" data-det-auto-unlock="${mission.id}">
-                  ✨ 確認送出並揭曉真相
-                </button>
-              </div>
-            `;
+          if (dState.observed) {
+            step2.innerHTML = `<div class="step-title" style="margin-bottom:0;">✅ 第 2 步完成：已完成現場眼睛觀察 15 秒！</div>`;
           } else {
-            // 嚴格模式：需輸入現場解鎖碼
-            step4Html = `
-              <div class="step-box">
-                <div class="step-title">步驟 4：請老師或小組長輸入「4位數現場解鎖碼」</div>
+            const pct = isCounting ? Math.round(((OBSERVE_SECONDS - leftSec) / OBSERVE_SECONDS) * 100) : 0;
+            step2.innerHTML = `
+              <div class="step-title">第 2 步：放下平板，專心看動物 15 秒</div>
+              <button type="button" class="handover-trigger-btn" style="width:100%;" id="btn-obs-${m.id}" ${isCounting ? "disabled" : ""}>
+                ${isCounting ? `👀 正在現場觀察中... 還剩 ${leftSec} 秒` : "⏱️ 開始現場觀察 15 秒"}
+              </button>
+              <div class="observe-timer-bar">
+                <div class="observe-timer-fill" style="width:${pct}%;"></div>
+              </div>
+            `;
+            const obsBtn = step2.querySelector(`#btn-obs-${m.id}`);
+            obsBtn.addEventListener("click", () => {
+              if (observeTimers[m.id]) return;
+              playClickSound();
+              observeCountdownLeft[m.id] = OBSERVE_SECONDS;
+              renderDetectiveTab();
+
+              observeTimers[m.id] = setInterval(() => {
+                observeCountdownLeft[m.id] -= 1;
+                if (observeCountdownLeft[m.id] <= 0) {
+                  clearInterval(observeTimers[m.id]);
+                  delete observeTimers[m.id];
+                  delete observeCountdownLeft[m.id];
+                  dState.observed = true;
+                  saveState();
+                  playSuccessFanfare();
+                }
+                renderDetectiveTab();
+              }, 1000);
+            });
+          }
+          bodyWrap.appendChild(step2);
+        }
+
+        // 關卡 3：目擊證據回報
+        if (dState.observed) {
+          const step3 = document.createElement("div");
+          step3.className = "step-box";
+          step3.innerHTML = `<div class="step-title">第 3 步：你在現場親眼看到哪個證據？</div>`;
+          const optList = document.createElement("div");
+          optList.className = "evidence-options";
+
+          m.evidenceOptions.forEach(opt => {
+            const eBtn = document.createElement("button");
+            eBtn.type = "button";
+            eBtn.className = `evidence-btn${dState.evidence === opt ? " selected" : ""}`;
+            eBtn.textContent = `${dState.evidence === opt ? "🔘" : "⚪"} ${opt}`;
+            eBtn.addEventListener("click", () => {
+              dState.evidence = opt;
+              saveState();
+              playClickSound();
+              renderDetectiveTab();
+            });
+            optList.appendChild(eBtn);
+          });
+          step3.appendChild(optList);
+          bodyWrap.appendChild(step3);
+        }
+
+        // 關卡 4：現場解鎖碼驗證與真相揭曉
+        if (dState.observed && dState.evidence) {
+          const step4 = document.createElement("div");
+          step4.className = "step-box";
+          step4.style.marginBottom = "0";
+
+          if (!dState.unlocked) {
+            if (appState.teacherSettings.strictMode) {
+              step4.innerHTML = `
+                <div class="step-title">第 4 步：請老師或小組長輸入「現場解鎖碼」揭曉真相</div>
                 <div class="pin-unlock-row">
-                  <input type="password" inputmode="numeric" maxlength="6" class="pin-input"
-                         id="pin-input-${mission.id}" placeholder="••••">
-                  <button type="button" class="primary-action-btn" style="width:auto;" data-det-pin-unlock="${mission.id}">
-                    🔑 驗證解鎖真相
+                  <input type="password" class="pin-input" id="pin-in-${m.id}" maxlength="6" inputmode="numeric" placeholder="••••">
+                  <button type="button" class="primary-action-btn" style="width: auto;" id="pin-btn-${m.id}">
+                    🔓 驗證解鎖碼
                   </button>
                 </div>
-                <div id="pin-msg-${mission.id}" style="color:var(--red-main); font-weight:800; margin-top:6px;"></div>
+                <div id="pin-err-${m.id}" style="color: var(--red-main); font-weight: 800; margin-top: 6px;"></div>
+              `;
+              const checkPin = () => {
+                const entered = step4.querySelector(`#pin-in-${m.id}`).value.trim();
+                if (entered === appState.teacherSettings.unlockPin) {
+                  dState.unlocked = true;
+                  dState.tempEditUnlocked = false;
+                  saveState();
+                  playSuccessFanfare();
+                  renderAllUI();
+                } else {
+                  playTone(220, 0.2, "sawtooth", 0.16);
+                  step4.querySelector(`#pin-err-${m.id}`).textContent = "❌ 解鎖碼不正確，請向現場老師或小組長確認！";
+                }
+              };
+              step4.querySelector(`#pin-btn-${m.id}`).addEventListener("click", checkPin);
+              step4.querySelector(`#pin-in-${m.id}`).addEventListener("keydown", e => {
+                if (e.key === "Enter") checkPin();
+              });
+            } else {
+              step4.innerHTML = `
+                <div class="step-title">第 4 步：已完成現場觀察與證據回報（自主模式）</div>
+                <button type="button" class="primary-action-btn" id="auto-unlock-${m.id}">
+                  ✨ 揭曉動物真相並領取偵探星
+                </button>
+              `;
+              step4.querySelector(`#auto-unlock-${m.id}`).addEventListener("click", () => {
+                dState.unlocked = true;
+                dState.tempEditUnlocked = false;
+                saveState();
+                playSuccessFanfare();
+                renderAllUI();
+              });
+            }
+          } else {
+            const isRight = dState.guess === m.correctGuess;
+            step4.innerHTML = `
+              <div class="truth-reveal-box">
+                <h4>${m.truthTitle}</h4>
+                <p style="margin: 6px 0;">${m.truthDesc}</p>
+                <div style="font-weight: 900; color: ${isRight ? "var(--forest-dark)" : "var(--orange-dark)"}; margin-top: 8px;">
+                  ${isRight ? "🎯 太厲害了！你的直覺猜測完全命中！" : "💡 原來如此！透過現場觀察破解迷思更有收穫！"}
+                </div>
               </div>
             `;
           }
+          bodyWrap.appendChild(step4);
         }
 
-        card.innerHTML = `
-          ${lockBannerHtml}
-          <div class="locked-body-wrapper ${isEditLocked ? "is-locked" : ""}">
-            <div class="detective-header">
-              <span class="zone-tag">${mission.zone}</span>
-              <span class="star-status">${st.unlocked ? "⭐ 已破案獲得星星" : "☆ 尚未破案"}</span>
-            </div>
-            <h3 class="myth-question">${mission.title}</h3>
-            <p style="margin-top:0; color:var(--text-muted); font-weight:700;">${mission.prompt}</p>
-            ${step1Html}
-            ${step2Html}
-            ${step3Html}
-            ${step4Html}
-          </div>
-        `;
+        card.appendChild(bodyWrap);
         container.appendChild(card);
       });
     }
 
-    // 偵探社事件委派
-    document.getElementById("detectiveCardsContainer").addEventListener("click", e => {
-      const btn = e.target.closest("button");
-      if (!btn) return;
-      const rec = getCurrentRecord();
-
-      // 重開修改
-      if (btn.dataset.detReopen) {
-        const id = btn.dataset.detReopen;
-        rec.detective[id].tempEditUnlocked = true;
-        playClickSound();
-        renderDetectiveTab();
-        return;
-      }
-
-      // 選擇直覺猜測
-      if (btn.dataset.detGuess) {
-        const [id, val] = btn.dataset.detGuess.split(":");
-        if (rec.detective[id].lockedGuess) return;
-        rec.detective[id].guess = val;
-        playClickSound();
-        saveState();
-        renderDetectiveTab();
-        return;
-      }
-
-      // 鎖定直覺猜測
-      if (btn.dataset.detLockGuess) {
-        const id = btn.dataset.detLockGuess;
-        if (!rec.detective[id].guess) return;
-        rec.detective[id].lockedGuess = true;
-        playClickSound();
-        saveState();
-        renderDetectiveTab();
-        return;
-      }
-
-      // 啟動 15 秒現場觀察倒數
-      if (btn.dataset.detObserve) {
-        const id = btn.dataset.detObserve;
-        if (observeTimers[id] || rec.detective[id].observed) return;
-        playClickSound();
-        observeCountdownLeft[id] = OBSERVE_SECONDS;
-        renderDetectiveTab();
-
-        observeTimers[id] = setInterval(() => {
-          observeCountdownLeft[id]--;
-          if (observeCountdownLeft[id] > 0) {
-            playTone(880, 0.04, "sine", 0.08);
-            const targetBtn = document.querySelector(`[data-det-observe="${id}"]`);
-            const targetFill = document.getElementById(`obs-fill-${id}`);
-            if (targetBtn) {
-              targetBtn.textContent = `⏳ 正在專心觀察中... 剩餘 ${observeCountdownLeft[id]} 秒`;
-            }
-            if (targetFill) {
-              const pct = Math.round(((OBSERVE_SECONDS - observeCountdownLeft[id]) / OBSERVE_SECONDS) * 100);
-              targetFill.style.width = `${pct}%`;
-            }
-          } else {
-            clearInterval(observeTimers[id]);
-            delete observeTimers[id];
-            delete observeCountdownLeft[id];
-            rec.detective[id].observed = true;
-            playSwitchSound();
-            saveState();
-            renderDetectiveTab();
-          }
-        }, 1000);
-        return;
-      }
-
-      // 勾選目擊證據
-      if (btn.dataset.detEv) {
-        const id = btn.dataset.detEv;
-        rec.detective[id].evidence = btn.dataset.evVal;
-        playClickSound();
-        saveState();
-        renderDetectiveTab();
-        return;
-      }
-
-      // 自主模式解鎖
-      if (btn.dataset.detAutoUnlock) {
-        const id = btn.dataset.detAutoUnlock;
-        rec.detective[id].unlocked = true;
-        rec.detective[id].tempEditUnlocked = false;
-        playSuccessFanfare();
-        saveState();
-        renderAllUI();
-        return;
-      }
-
-      // 嚴格模式 PIN 驗證解鎖
-      if (btn.dataset.detPinUnlock) {
-        const id = btn.dataset.detPinUnlock;
-        const inputEl = document.getElementById(`pin-input-${id}`);
-        const msgEl = document.getElementById(`pin-msg-${id}`);
-        const val = (inputEl ? inputEl.value : "").trim();
-        if (val === appState.teacherSettings.unlockPin) {
-          rec.detective[id].unlocked = true;
-          rec.detective[id].tempEditUnlocked = false;
-          playSuccessFanfare();
-          saveState();
-          renderAllUI();
-        } else {
-          playTone(220, 0.2, "sawtooth", 0.16);
-          if (msgEl) msgEl.textContent = "❌ 解鎖碼不正確，請再向老師或小組長確認喔！";
-        }
-      }
-    });
-
     /* ==========================================================================
-       八、分頁 2：行為碼錶手（真實 3 分鐘計時 + 正字 SVG + 比例圖）
+       八、分頁 2：行為碼錶手（真實 3 分鐘計時 + 正字記號 SVG）
        ========================================================================== */
     function formatSecondsMMSS(sec) {
-      const m = Math.floor(sec / 60);
-      const s = sec % 60;
-      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+      const s = Math.max(0, Math.floor(sec));
+      const mm = String(Math.floor(s / 60)).padStart(2, "0");
+      const ss = String(s % 60).padStart(2, "0");
+      return `${mm}:${ss}`;
+    }
+
+    function createZhengSvgElement(strokes) {
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("viewBox", "0 0 52 52");
+      svg.setAttribute("width", "34");
+      svg.setAttribute("height", "34");
+      svg.style.border = "1.5px solid #CBD5E1";
+      svg.style.borderRadius = "6px";
+      svg.style.backgroundColor = "#FFFDF7";
+
+      const paths = [
+        "M 10 13 H 42", // 1. 上橫
+        "M 26 13 V 43", // 2. 中豎
+        "M 26 27 H 40", // 3. 右短橫
+        "M 14 24 V 43", // 4. 左短豎
+        "M 8 43 H 44"   // 5. 底橫
+      ];
+
+      for (let i = 0; i < Math.min(5, strokes); i++) {
+        const p = document.createElementNS(svgNS, "path");
+        p.setAttribute("d", paths[i]);
+        p.setAttribute("stroke", strokes === 5 ? "#15803D" : "#EA580C");
+        p.setAttribute("stroke-width", "4.5");
+        p.setAttribute("stroke-linecap", "round");
+        p.setAttribute("fill", "none");
+        svg.appendChild(p);
+      }
+      return svg;
+    }
+
+    function renderZhengStrokes(containerEl, count) {
+      containerEl.innerHTML = "";
+      if (count <= 0) {
+        containerEl.innerHTML = `<span style="color:#94A3B8; font-size:0.84rem; font-weight:700;">尚未計數</span>`;
+        return;
+      }
+      const fullUnits = Math.floor(count / 5);
+      const remainder = count % 5;
+      for (let i = 0; i < fullUnits; i++) {
+        containerEl.appendChild(createZhengSvgElement(5));
+      }
+      if (remainder > 0) {
+        containerEl.appendChild(createZhengSvgElement(remainder));
+      }
     }
 
     function renderStopwatchTab() {
@@ -2900,49 +3095,43 @@
       const sw = rec.stopwatch;
 
       // 防誤改保護鎖
+      const isLocked = sw.saved && sw.editLocked;
       const lockBar = document.getElementById("stopwatchLockBar");
-      const wrapper = document.getElementById("stopwatchBodyWrapper");
-      const card = document.getElementById("stopwatchMissionCard");
-      if (sw.saved && sw.editLocked) {
-        lockBar.style.display = "flex";
-        document.getElementById("stopwatchLockText").textContent =
-          `🔒 ${appState.currentSeat} 已完成本關卡紀錄（${sw.animal}）`;
-        wrapper.classList.add("is-locked");
-        card.classList.add("completed-card");
-      } else {
-        lockBar.style.display = "none";
-        wrapper.classList.remove("is-locked");
-        card.classList.toggle("completed-card", sw.saved);
-      }
+      const bodyWrap = document.getElementById("stopwatchBodyWrapper");
+      lockBar.style.display = isLocked ? "flex" : "none";
+      document.getElementById("stopwatchLockText").textContent = `🔒 ${appState.currentSeat} 已完成行為碼錶紀錄`;
+      bodyWrap.classList.toggle("is-locked", isLocked);
 
+      // 動物欄位
       document.getElementById("swAnimalSelect").value = sw.animal || "台灣黑熊";
       document.getElementById("swCustomAnimal").value = sw.customAnimal || "";
-      document.getElementById("swTimerDigits").textContent = formatSecondsMMSS(sw.remainingSeconds);
 
-      const btnStart = document.getElementById("btnSwStart");
-      const btnPause = document.getElementById("btnSwPause");
+      // 計時器顯示
+      document.getElementById("swTimerDigits").textContent = formatSecondsMMSS(sw.remainingSeconds);
+      const statusEl = document.getElementById("swTimerStatus");
       if (swIsRunning) {
-        btnStart.disabled = true;
-        btnPause.disabled = false;
-        document.getElementById("swTimerStatus").textContent = "⏱️ 計時進行中！動物每做一次動作就點下面按鈕";
+        statusEl.textContent = "⏱️ 正在進行 3 分鐘計時，發現動作請按下方按鈕！";
+      } else if (sw.remainingSeconds === 0) {
+        statusEl.textContent = "🔔 3 分鐘觀察時間到！請記得按「儲存觀察紀錄」";
+      } else if (sw.remainingSeconds < STOPWATCH_TOTAL_SECONDS) {
+        statusEl.textContent = "⏸️ 計時已暫停，可按開始繼續或重新歸零";
       } else {
-        btnStart.disabled = sw.remainingSeconds <= 0;
-        btnPause.disabled = true;
-        document.getElementById("swTimerStatus").textContent =
-          sw.remainingSeconds <= 0
-            ? "🎉 3 分鐘計時完成！請按下方「儲存觀察紀錄」"
-            : "按下「開始 3 分鐘計時」後，專心觀察動物動作";
+        statusEl.textContent = "按下「開始 3 分鐘計時」後，專心觀察動物動作";
       }
 
-      const behKeys = ["walk", "eat", "rest", "look"];
-      const total = behKeys.reduce((sum, k) => sum + (sw.counts[k] || 0), 0);
+      document.getElementById("btnSwStart").disabled = swIsRunning || sw.remainingSeconds <= 0;
+      document.getElementById("btnSwPause").disabled = !swIsRunning;
+
+      // 四大行為計數與正字圖
+      const keys = ["walk", "eat", "rest", "look"];
+      const total = keys.reduce((sum, k) => sum + (sw.counts[k] || 0), 0);
       document.getElementById("swTotalCount").textContent = total;
 
-      behKeys.forEach(k => {
-        const cnt = sw.counts[k] || 0;
-        document.getElementById(`count-${k}`).textContent = `${cnt} 次`;
-        document.getElementById(`zheng-${k}`).innerHTML = buildZhengTallyHtml(cnt);
-        const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
+      keys.forEach(k => {
+        const c = sw.counts[k] || 0;
+        document.getElementById(`count-${k}`).textContent = `${c} 次`;
+        renderZhengStrokes(document.getElementById(`zheng-${k}`), c);
+        const pct = total > 0 ? Math.round((c / total) * 100) : 0;
         document.getElementById(`bar-${k}`).style.width = `${pct}%`;
         document.getElementById(`pct-${k}`).textContent = `${pct}%`;
       });
@@ -2959,42 +3148,33 @@
     });
 
     document.getElementById("btnSwStart").addEventListener("click", () => {
-      if (swIsRunning) return;
       const sw = getCurrentRecord().stopwatch;
-      if (sw.remainingSeconds <= 0) return;
-
+      if (swIsRunning || sw.remainingSeconds <= 0) return;
       playClickSound();
       swIsRunning = true;
       renderStopwatchTab();
 
       swIntervalId = setInterval(() => {
         const curSw = getCurrentRecord().stopwatch;
-        if (curSw.remainingSeconds > 0) {
-          curSw.remainingSeconds--;
-          document.getElementById("swTimerDigits").textContent = formatSecondsMMSS(curSw.remainingSeconds);
-          if (curSw.remainingSeconds <= 5 && curSw.remainingSeconds > 0) {
-            playTone(780, 0.08, "sine", 0.14);
-          }
-          if (curSw.remainingSeconds === 0) {
-            clearInterval(swIntervalId);
-            swIntervalId = null;
-            swIsRunning = false;
-            playSuccessFanfare();
-            saveState();
-            renderStopwatchTab();
-            showSwitchToast("⏰ 3 分鐘計時結束！記得按「儲存觀察紀錄」喔！");
-          }
+        curSw.remainingSeconds = Math.max(0, curSw.remainingSeconds - 1);
+        saveState();
+        if (curSw.remainingSeconds === 0) {
+          clearInterval(swIntervalId);
+          swIntervalId = null;
+          swIsRunning = false;
+          playSuccessFanfare();
         }
+        renderStopwatchTab();
       }, 1000);
     });
 
     document.getElementById("btnSwPause").addEventListener("click", () => {
-      if (!swIsRunning) return;
-      clearInterval(swIntervalId);
-      swIntervalId = null;
+      if (swIntervalId) {
+        clearInterval(swIntervalId);
+        swIntervalId = null;
+      }
       swIsRunning = false;
       playClickSound();
-      saveState();
       renderStopwatchTab();
     });
 
@@ -3007,275 +3187,450 @@
       const sw = getCurrentRecord().stopwatch;
       sw.remainingSeconds = STOPWATCH_TOTAL_SECONDS;
       sw.counts = { walk: 0, eat: 0, rest: 0, look: 0 };
-      playClickSound();
       saveState();
+      playClickSound();
       renderStopwatchTab();
     });
 
-    // 行為計數按鈕 (+1 與 -1)
-    document.getElementById("stopwatchBodyWrapper").addEventListener("click", e => {
-      const tapBtn = e.target.closest("[data-beh]");
-      if (tapBtn) {
-        const k = tapBtn.dataset.beh;
+    document.querySelectorAll(".behavior-tap-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const beh = btn.dataset.beh;
         const sw = getCurrentRecord().stopwatch;
-        sw.counts[k] = (sw.counts[k] || 0) + 1;
-        playTone(660, 0.06, "triangle", 0.16);
+        sw.counts[beh] = (sw.counts[beh] || 0) + 1;
         saveState();
+        playClickSound();
         renderStopwatchTab();
-        return;
-      }
+      });
+    });
 
-      const minusBtn = e.target.closest("[data-minus]");
-      if (minusBtn) {
-        const k = minusBtn.dataset.minus;
+    document.querySelectorAll(".minus-one-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const beh = btn.dataset.minus;
         const sw = getCurrentRecord().stopwatch;
-        if (sw.counts[k] > 0) {
-          sw.counts[k]--;
-          playTone(440, 0.06, "sine", 0.12);
-          saveState();
-          renderStopwatchTab();
-        }
-      }
+        sw.counts[beh] = Math.max(0, (sw.counts[beh] || 0) - 1);
+        saveState();
+        playClickSound();
+        renderStopwatchTab();
+      });
     });
 
     document.getElementById("btnSaveStopwatch").addEventListener("click", () => {
-      const sw = getCurrentRecord().stopwatch;
-      const total = Object.values(sw.counts).reduce((a, b) => a + b, 0);
-      if (total === 0) {
-        showSwitchToast("⚠️ 請至少記錄 1 次動物動作再儲存喔！");
-        playTone(250, 0.18, "sawtooth", 0.14);
-        return;
-      }
       if (swIntervalId) {
         clearInterval(swIntervalId);
         swIntervalId = null;
-        swIsRunning = false;
       }
+      swIsRunning = false;
+      const sw = getCurrentRecord().stopwatch;
       sw.saved = true;
       sw.editLocked = true;
-      playSuccessFanfare();
       saveState();
+      playSuccessFanfare();
       renderAllUI();
-      showSwitchToast(`✅ ${appState.currentSeat} 的行為碼錶紀錄已儲存並鎖定！`);
+      showSwitchToast(`💾 已儲存 ${appState.currentSeat} 的行為碼錶紀錄！`);
     });
 
     document.getElementById("btnUnlockStopwatch").addEventListener("click", () => {
-      getCurrentRecord().stopwatch.editLocked = false;
-      playClickSound();
+      const sw = getCurrentRecord().stopwatch;
+      sw.editLocked = false;
       saveState();
+      playClickSound();
       renderStopwatchTab();
     });
 
     /* ==========================================================================
-       九、分頁 3：玩具設計師（完全由學生自行輸入筆記，無任何短語標籤按鈕）
+       九、分頁 3：玩具設計師（完全由學生自行輸入筆記）
        ========================================================================== */
     function updateToyCharCounter() {
-      const toy = getCurrentRecord().toy;
-      const total = (toy.animalZone || "").length +
-                    (toy.whatText || "").length +
-                    (toy.howText || "").length +
-                    (toy.designText || "").length;
-      document.getElementById("toyTotalChars").textContent = total;
+      const rec = getCurrentRecord();
+      const toy = rec.toy;
+      const len = (toy.animalZone || "").length +
+                  (toy.whatText || "").length +
+                  (toy.howText || "").length +
+                  (toy.designText || "").length;
+      document.getElementById("toyTotalChars").textContent = len;
     }
 
     function renderToyTab() {
       const rec = getCurrentRecord();
       const toy = rec.toy;
 
-      // 防誤改保護鎖
-      const lockBar = document.getElementById("toyLockBar");
-      const wrapper = document.getElementById("toyBodyWrapper");
-      const card = document.getElementById("toyMissionCard");
-      if (toy.saved && toy.editLocked) {
-        lockBar.style.display = "flex";
-        document.getElementById("toyLockText").textContent =
-          `🔒 ${appState.currentSeat} 已完成玩具設計筆記`;
-        wrapper.classList.add("is-locked");
-        card.classList.add("completed-card");
-      } else {
-        lockBar.style.display = "none";
-        wrapper.classList.remove("is-locked");
-        card.classList.toggle("completed-card", toy.saved);
-      }
+      const isLocked = toy.saved && toy.editLocked;
+      document.getElementById("toyLockBar").style.display = isLocked ? "flex" : "none";
+      document.getElementById("toyLockText").textContent = `🔒 ${appState.currentSeat} 已完成玩具設計筆記`;
+      document.getElementById("toyBodyWrapper").classList.toggle("is-locked", isLocked);
 
       document.getElementById("toyAnimalZone").value = toy.animalZone || "";
       document.getElementById("toyInputWhat").value = toy.whatText || "";
       document.getElementById("toyInputHow").value = toy.howText || "";
       document.getElementById("toyInputDesign").value = toy.designText || "";
 
-      document.querySelectorAll("#bodypartGrid .bodypart-btn").forEach(btn => {
-        const part = btn.dataset.part;
-        btn.classList.toggle("selected", toy.bodyParts.includes(part));
+      const selectedParts = Array.isArray(toy.bodyParts) ? toy.bodyParts : [];
+      document.querySelectorAll(".bodypart-btn").forEach(btn => {
+        btn.classList.toggle("selected", selectedParts.includes(btn.dataset.part));
       });
 
       updateToyCharCounter();
     }
 
-    document.getElementById("bodypartGrid").addEventListener("click", e => {
-      const btn = e.target.closest(".bodypart-btn");
-      if (!btn) return;
-      const part = btn.dataset.part;
-      const toy = getCurrentRecord().toy;
-      const idx = toy.bodyParts.indexOf(part);
-      if (idx >= 0) toy.bodyParts.splice(idx, 1);
-      else toy.bodyParts.push(part);
-      playClickSound();
-      saveState();
-      renderToyTab();
+    document.querySelectorAll(".bodypart-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const part = btn.dataset.part;
+        const toy = getCurrentRecord().toy;
+        if (!Array.isArray(toy.bodyParts)) toy.bodyParts = [];
+        const idx = toy.bodyParts.indexOf(part);
+        if (idx >= 0) {
+          toy.bodyParts.splice(idx, 1);
+        } else {
+          toy.bodyParts.push(part);
+        }
+        saveState();
+        playClickSound();
+        renderToyTab();
+      });
     });
 
     ["toyAnimalZone", "toyInputWhat", "toyInputHow", "toyInputDesign"].forEach(id => {
-      document.getElementById(id).addEventListener("input", e => {
+      document.getElementById(id).addEventListener("input", () => {
         const toy = getCurrentRecord().toy;
-        if (id === "toyAnimalZone") toy.animalZone = e.target.value;
-        if (id === "toyInputWhat") toy.whatText = e.target.value;
-        if (id === "toyInputHow") toy.howText = e.target.value;
-        if (id === "toyInputDesign") toy.designText = e.target.value;
-        updateToyCharCounter();
+        toy.animalZone = document.getElementById("toyAnimalZone").value;
+        toy.whatText = document.getElementById("toyInputWhat").value;
+        toy.howText = document.getElementById("toyInputHow").value;
+        toy.designText = document.getElementById("toyInputDesign").value;
         saveState();
+        updateToyCharCounter();
       });
     });
 
     document.getElementById("btnSaveToy").addEventListener("click", () => {
       const toy = getCurrentRecord().toy;
-      const hasAnyNote = (toy.whatText || "").trim().length > 0 ||
-                         (toy.howText || "").trim().length > 0 ||
-                         (toy.designText || "").trim().length > 0;
-      if (!hasAnyNote) {
-        showSwitchToast("⚠️ 請先在格子裡輸入你的玩具觀察筆記再儲存喔！");
-        playTone(250, 0.18, "sawtooth", 0.14);
+      toy.animalZone = document.getElementById("toyAnimalZone").value.trim();
+      toy.whatText = document.getElementById("toyInputWhat").value.trim();
+      toy.howText = document.getElementById("toyInputHow").value.trim();
+      toy.designText = document.getElementById("toyInputDesign").value.trim();
+
+      if (!toy.animalZone && !toy.whatText && !toy.howText && !toy.designText) {
+        playTone(220, 0.2, "sawtooth", 0.16);
+        showSwitchToast("⚠️ 請先輸入至少一項觀察或玩具設計內容再儲存喔！");
         return;
       }
+
       toy.saved = true;
       toy.editLocked = true;
-      playSuccessFanfare();
       saveState();
+      playSuccessFanfare();
       renderAllUI();
-      showSwitchToast(`✅ ${appState.currentSeat} 的玩具設計筆記已儲存並鎖定！`);
+      showSwitchToast(`💾 已儲存 ${appState.currentSeat} 的玩具設計筆記！`);
     });
 
     document.getElementById("btnUnlockToy").addEventListener("click", () => {
-      getCurrentRecord().toy.editLocked = false;
-      playClickSound();
+      const toy = getCurrentRecord().toy;
+      toy.editLocked = false;
       saveState();
+      playClickSound();
       renderToyTab();
     });
 
     /* ==========================================================================
-       十、分頁 4：探險戰報、高解析度 PNG 結業證書與 UTF-8 BOM CSV 匯出
+       十、分頁 4：探險戰報、直式 A4 個人素養探索學習歷程證書與 UTF-8 BOM CSV 匯出
        ========================================================================== */
     function renderOverviewAndCertificate() {
-      // 1. 渲染小組 4 人對照表
       const tbody = document.getElementById("groupOverviewTbody");
       tbody.innerHTML = "";
 
       appState.groupSeats.forEach(seat => {
         const rec = ensureStudentRecord(seat);
         const stats = getStudentTaskStats(seat);
-        const swTotal = Object.values(rec.stopwatch.counts).reduce((a, b) => a + b, 0);
         const isCurrent = seat === appState.currentSeat;
 
         const tr = document.createElement("tr");
         if (isCurrent) tr.className = "active-row";
         tr.style.cursor = "pointer";
+        tr.title = `點擊切換為 ${seat}`;
         tr.innerHTML = `
-          <td><strong>${seat} ${isCurrent ? "👈" : ""}</strong></td>
-          <td>${"⭐".repeat(stats.stars)}${"☆".repeat(3 - stats.stars)} (${stats.stars}/3)</td>
-          <td>${stats.swDone ? `✅ 已完成 (${swTotal}次)` : "⏳ 進行中"}</td>
-          <td>${stats.toyDone ? "✅ 已完成" : "⏳ 進行中"}</td>
-          <td><strong>${stats.completedCount === 3 ? "🏆 全部完成" : `${stats.completedCount}/3`}</strong></td>
+          <td>${seat}${isCurrent ? " 👉" : ""}</td>
+          <td>⭐ ${stats.stars} / 3 顆星</td>
+          <td>${stats.swDone ? `✅ 已完成（${rec.stopwatch.animal}）` : "⏳ 尚未完成"}</td>
+          <td>${stats.toyDone ? "✅ 已完成" : "⏳ 尚未完成"}</td>
+          <td>${stats.completedCount} / 3 項</td>
         `;
         tr.addEventListener("click", () => {
-          if (seat !== appState.currentSeat) switchToStudentSeat(seat, true);
+          if (seat !== appState.currentSeat) {
+            switchToStudentSeat(seat, true);
+          }
         });
         tbody.appendChild(tr);
       });
 
-      // 2. 繪製目前學生高解析度 PNG 結業證書
       drawCertificateCanvas();
+    }
+
+    // 智慧中文自動換行與動態高度排版工具
+    function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+      const content = (text || "").trim() || "（尚未填寫文字紀錄）";
+      const chars = Array.from(content);
+      let line = "";
+      let curY = y;
+      let linesDrawn = 0;
+
+      for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        if (ch === "\n") {
+          ctx.fillText(line, x, curY);
+          linesDrawn++;
+          if (maxLines && linesDrawn >= maxLines) return curY + lineHeight;
+          curY += lineHeight;
+          line = "";
+          continue;
+        }
+        const testLine = line + ch;
+        if (ctx.measureText(testLine).width > maxWidth && line.length > 0) {
+          if (maxLines && linesDrawn === maxLines - 1) {
+            ctx.fillText(line.slice(0, -1) + "…", x, curY);
+            return curY + lineHeight;
+          }
+          ctx.fillText(line, x, curY);
+          linesDrawn++;
+          curY += lineHeight;
+          line = ch;
+        } else {
+          line = testLine;
+        }
+      }
+      if (line.length > 0) {
+        ctx.fillText(line, x, curY);
+        curY += lineHeight;
+      }
+      return curY;
+    }
+
+    function drawRoundRect(ctx, x, y, w, h, r, fillStyle, strokeStyle, lineWidth = 2) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+      if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+      }
+      if (strokeStyle) {
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = strokeStyle;
+        ctx.stroke();
+      }
+    }
+
+    function drawCanvasZhengTally(ctx, x, y, count) {
+      const drawOne = (ox, oy, strokes) => {
+        ctx.strokeStyle = "#CBD5E1";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(ox, oy, 26, 26);
+
+        ctx.strokeStyle = strokes === 5 ? "#15803D" : "#EA580C";
+        ctx.lineWidth = 2.6;
+        ctx.lineCap = "round";
+        const segs = [
+          [[5, 7], [21, 7]],
+          [[13, 7], [13, 22]],
+          [[13, 14], [20, 14]],
+          [[7, 13], [7, 22]],
+          [[4, 22], [22, 22]]
+        ];
+        for (let i = 0; i < Math.min(5, strokes); i++) {
+          ctx.beginPath();
+          ctx.moveTo(ox + segs[i][0][0], oy + segs[i][0][1]);
+          ctx.lineTo(ox + segs[i][1][0], oy + segs[i][1][1]);
+          ctx.stroke();
+        }
+      };
+
+      if (count <= 0) {
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "bold 20px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText("0 次", x, y + 20);
+        return;
+      }
+
+      const full = Math.floor(count / 5);
+      const rem = count % 5;
+      const maxDraw = Math.min(full, 6);
+      let cx = x;
+      for (let i = 0; i < maxDraw; i++) {
+        drawOne(cx, y, 5);
+        cx += 31;
+      }
+      if (full > 6) {
+        ctx.fillStyle = "#1E293B";
+        ctx.font = "bold 20px sans-serif";
+        ctx.fillText(`+${(full - 6) * 5 + rem}次`, cx + 4, y + 20);
+      } else if (rem > 0) {
+        drawOne(cx, y, rem);
+      }
     }
 
     function drawCertificateCanvas() {
       const canvas = document.getElementById("certCanvas");
+      if (!canvas) return;
       const ctx = canvas.getContext("2d");
-      const W = canvas.width;
-      const H = canvas.height;
+      const W = 1240;
+      const H = 1754;
+      canvas.width = W;
+      canvas.height = H;
+
       const seat = appState.currentSeat;
       const rec = getCurrentRecord();
       const stats = getStudentTaskStats(seat);
+      const d = rec.detective;
+      const sw = rec.stopwatch;
+      const toy = rec.toy;
 
-      // 背景底色
+      // 背景與雙重古典邊框
       ctx.fillStyle = "#FFFDF7";
       ctx.fillRect(0, 0, W, H);
-
-      // 雙層森林綠與亮橘外框
       ctx.strokeStyle = "#14532D";
-      ctx.lineWidth = 16;
-      ctx.strokeRect(20, 20, W - 40, H - 40);
-
-      ctx.strokeStyle = "#EA580C";
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 14;
       ctx.strokeRect(36, 36, W - 72, H - 72);
+      ctx.strokeStyle = "#EA580C";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(56, 56, W - 112, H - 112);
 
       // 頂部橫幅
-      ctx.fillStyle = "#15803D";
-      ctx.fillRect(56, 56, W - 112, 86);
-
+      drawRoundRect(ctx, 84, 84, W - 168, 175, 22, "#14532D", null);
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = "900 34px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("🦁 台北市立動物園・小小探險家結業證書", W / 2, 112);
+      ctx.font = "900 44px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("🦁 台北市立動物園・校外教學學習歷程證書", W / 2, 152);
+      ctx.fillStyle = "#FDE68A";
+      ctx.font = "bold 25px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("TAIPEI ZOO FIELD EXPLORATION PORTFOLIO CERTIFICATE", W / 2, 198);
 
-      // 學生班級座號
-      ctx.fillStyle = "#1E293B";
-      ctx.font = "900 42px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-      ctx.fillText(`${appState.className}   ${seat}`, W / 2, 212);
-
-      ctx.fillStyle = "#475569";
-      ctx.font = "700 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-      ctx.fillText("完成園區現場觀察、動物行為量化統計與保育員創意任務", W / 2, 256);
-
-      // 三項任務勳章卡
-      const badges = [
-        { title: "🔍 動物偵探社", val: `獲得 ${stats.stars} / 3 顆星`, done: stats.detDone },
-        { title: "⏱️ 行為碼錶手", val: stats.swDone ? `已記錄 ${rec.stopwatch.animal}` : "尚未完成存檔", done: stats.swDone },
-        { title: "🧸 玩具設計師", val: stats.toyDone ? "已完成創意筆記" : "尚未完成存檔", done: stats.toyDone }
-      ];
-
-      badges.forEach((b, idx) => {
-        const bx = 74 + idx * 256;
-        const by = 295;
-        const bw = 236;
-        const bh = 148;
-
-        ctx.fillStyle = b.done ? "#DCFCE7" : "#F1F5F9";
-        ctx.fillRect(bx, by, bw, bh);
-        ctx.strokeStyle = b.done ? "#15803D" : "#94A3B8";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(bx, by, bw, bh);
-
-        ctx.fillStyle = "#1E293B";
-        ctx.font = "900 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-        ctx.fillText(b.title, bx + bw / 2, by + 48);
-
-        ctx.fillStyle = b.done ? "#14532D" : "#64748B";
-        ctx.font = "800 19px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-        ctx.fillText(b.val, bx + bw / 2, by + 92);
-
-        ctx.font = "900 20px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-        ctx.fillText(b.done ? "✅ 已達成" : "⏳ 繼續加油", bx + bw / 2, by + 128);
-      });
-
-      // 底部日期與核發單位
+      // 認證編號與日期
       const now = new Date();
       const dateStr = `${now.getFullYear()} 年 ${now.getMonth() + 1} 月 ${now.getDate()} 日`;
-      ctx.fillStyle = "#C2410C";
+      const serialNo = `TPZOO-${now.getFullYear()}-${seat.replace(/\D/g, "").padStart(2, "0")}${stats.completedCount}${stats.stars}`;
+      ctx.fillStyle = "#CBD5E1";
+      ctx.font = "bold 20px sans-serif";
+      ctx.fillText(`認證編號：${serialNo}　｜　頒發日期：${dateStr}`, W / 2, 238);
+
+      // 學生身分與榮譽頭銜卡
+      drawRoundRect(ctx, 84, 280, W - 168, 130, 18, "#FEF3C7", "#F59E0B", 3);
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#1E293B";
+      ctx.font = "900 34px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`探險學員：${appState.className}　${seat}`, 116, 336);
+
+      let honorTitle = "🌱 動物園小小探險見習生";
+      if (stats.completedCount === 3 && stats.stars === 3) {
+        honorTitle = "🏆 台北市立動物園全能小小博物學家";
+      } else if (stats.completedCount >= 2) {
+        honorTitle = "🌟 動物園資深生態觀察員";
+      }
+      ctx.fillStyle = "#B45309";
+      ctx.font = "900 30px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`榮譽稱號：${honorTitle}（完成 ${stats.completedCount}/3 項任務・獲 ${stats.stars}/3 顆偵探星）`, 116, 386);
+
+      // 區塊一：動物偵探社實證歷程 (Y: 430 ~ 760)
+      drawRoundRect(ctx, 84, 430, W - 168, 325, 18, "#FFFFFF", "#15803D", 3);
+      ctx.fillStyle = "#14532D";
+      ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`🔍 學習歷程一：動物偵探社・現場觀察破案紀錄（獲得 ${stats.stars} / 3 顆星）`, 112, 476);
+
+      let dy = 522;
+      DETECTIVE_MISSIONS.forEach(m => {
+        const ds = d[m.id];
+        const guessLabel = ds.guess === "true" ? "猜測：是真的" : ds.guess === "false" ? "猜測：是假的" : "未作答";
+        const statusMark = ds.unlocked ? "⭐ 已破案" : "⏳ 進行中";
+        ctx.fillStyle = ds.unlocked ? "#15803D" : "#64748B";
+        ctx.font = "900 23px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText(`${m.zone}｜${m.title.replace(/^任務 \d+：/, "")}　[${statusMark}]`, 112, dy);
+
+        ctx.fillStyle = "#334155";
+        ctx.font = "bold 21px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        const evText = ds.evidence ? `目擊證據：${ds.evidence}` : "目擊證據：尚未回報";
+        ctx.fillText(`　• ${guessLabel} ➔ ${evText}`, 112, dy + 32);
+        dy += 76;
+      });
+
+      // 區塊二：行為碼錶手科學量化紀錄 (Y: 775 ~ 1095)
+      drawRoundRect(ctx, 84, 775, W - 168, 320, 18, "#FFFFFF", "#0284C7", 3);
+      ctx.fillStyle = "#0369A1";
+      ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      const animalFull = sw.customAnimal ? `${sw.animal}（${sw.customAnimal}）` : sw.animal;
+      ctx.fillText(`⏱️ 學習歷程二：行為碼錶手・3 分鐘動作統計（觀察動物：${animalFull}）`, 112, 821);
+
+      const behList = [
+        { key: "walk", label: "🚶 走來走去", color: "#0284C7" },
+        { key: "eat",  label: "🍃 低頭吃東西", color: "#15803D" },
+        { key: "rest", label: "😴 趴著休息", color: "#D97706" },
+        { key: "look", label: "👀 東張西望", color: "#7C3AED" }
+      ];
+      const totalActions = behList.reduce((s, b) => s + (sw.counts[b.key] || 0), 0);
+
+      let by = 866;
+      behList.forEach(b => {
+        const cnt = sw.counts[b.key] || 0;
+        const pct = totalActions > 0 ? Math.round((cnt / totalActions) * 100) : 0;
+        ctx.fillStyle = "#1E293B";
+        ctx.font = "bold 23px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText(`${b.label}：`, 112, by + 20);
+
+        drawCanvasZhengTally(ctx, 290, by - 2, cnt);
+
+        // 右側迷你比例橫條
+        const barX = 560;
+        const barW = 460;
+        drawRoundRect(ctx, barX, by + 2, barW, 22, 11, "#E2E8F0", null);
+        if (pct > 0) {
+          drawRoundRect(ctx, barX, by + 2, Math.max(22, (barW * pct) / 100), 22, 11, b.color, null);
+        }
+        ctx.fillStyle = "#1E293B";
+        ctx.font = "900 22px sans-serif";
+        ctx.fillText(`${cnt} 次 (${pct}%)`, barX + barW + 16, by + 21);
+        by += 54;
+      });
+
+      // 區塊三：保育員玩具設計師原創筆記 (Y: 1115 ~ 1495)
+      drawRoundRect(ctx, 84, 1115, W - 168, 380, 18, "#FFFFFF", "#7C3AED", 3);
+      ctx.fillStyle = "#5B21B6";
+      ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      const toyHeaderZone = toy.animalZone ? `（觀察對象：${toy.animalZone}）` : "";
+      ctx.fillText(`🧸 學習歷程三：保育員玩具設計師・現場觀察與創意筆記${toyHeaderZone}`, 112, 1161);
+
+      ctx.fillStyle = "#334155";
+      ctx.font = "bold 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      const partsStr = Array.isArray(toy.bodyParts) && toy.bodyParts.length > 0
+        ? toy.bodyParts.join("、")
+        : "尚未勾選";
+      ctx.fillText(`• 動物互動部位：${partsStr}`, 112, 1202);
+
+      let ny = 1238;
+      ctx.fillStyle = "#1E293B";
+      ctx.font = "bold 21px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ny = drawWrappedText(ctx, `1. 發現的人造玩具：${toy.whatText || "（尚未輸入）"}`, 112, ny, W - 224, 30, 2);
+      ny += 6;
+      ny = drawWrappedText(ctx, `2. 動物怎麼玩玩具：${toy.howText || "（尚未輸入）"}`, 112, ny, W - 224, 30, 3);
+      ny += 6;
+      drawWrappedText(ctx, `3. 我的新玩具設計：${toy.designText || "（尚未輸入）"}`, 112, ny, W - 224, 30, 3);
+
+      // 區塊四：十二年國教三大核心素養星等評量與師長簽章 (Y: 1515 ~ 1685)
+      drawRoundRect(ctx, 84, 1515, W - 168, 170, 18, "#F5F2E8", "#CBD5E1", 2.5);
+      ctx.fillStyle = "#14532D";
       ctx.font = "900 24px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-      ctx.fillText(`總任務完成度：${stats.completedCount} / 3 項`, W / 2, 495);
+      ctx.fillText("🌟 核心素養表現指標：", 112, 1558);
+
+      const s1 = stats.stars >= 2 ? "★★★★★" : "★★★☆☆";
+      const s2 = stats.swDone ? "★★★★★" : "★★★☆☆";
+      const s3 = stats.toyDone ? "★★★★★" : "★★★☆☆";
+      ctx.fillStyle = "#1E293B";
+      ctx.font = "bold 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`• 系統思考與解決問題：${s1}　　• 符號運用與數據統計：${s2}`, 112, 1598);
+      ctx.fillText(`• 規劃執行與創新應變：${s3}`, 112, 1636);
 
       ctx.fillStyle = "#475569";
-      ctx.font = "700 19px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
-      ctx.fillText(`台北市立動物園校外教學探險任務站 v1.4  •  ${dateStr}`, W / 2, 545);
+      ctx.font = "bold 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("指導老師簽章：______________　　家長鼓勵簽章：______________", 112, 1672);
     }
 
     document.getElementById("btnDownloadCert").addEventListener("click", () => {
@@ -3284,12 +3639,12 @@
       const dataUrl = canvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = dataUrl;
-      a.download = `動物園探險證書_${appState.className}_${appState.currentSeat}.png`;
+      a.download = `動物園素養學習歷程證書_${appState.className}_${appState.currentSeat}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       playSuccessFanfare();
-      showSwitchToast("⬇️ 結業證書 PNG 已開始下載！");
+      showSwitchToast("⬇️ 直式 A4 學習歷程證書 PNG 已開始下載！");
     });
 
     document.getElementById("btnPreviewCertModal").addEventListener("click", () => {
@@ -3356,19 +3711,19 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `台北市立動物園探險戰報_${appState.className}.csv`;
+      a.download = `台北市立動物園探險紀錄_${appState.className}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      URL.revokeObjectURL(url);
       playSuccessFanfare();
-      showSwitchToast("📊 全機探險紀錄 CSV 已匯出！");
+      showSwitchToast("📊 Excel 專用 CSV 探險紀錄已匯出！");
     }
 
     document.getElementById("btnExportCsv").addEventListener("click", exportAllRecordsToCsv);
 
     /* ==========================================================================
-       十一、彈窗管理、QR Code 分享、小組設定與教師管理中心
+       十一、通用彈窗控制與右上方純圖示按鈕事件綁定
        ========================================================================== */
     function openModal(id) {
       const el = document.getElementById(id);
@@ -3387,42 +3742,88 @@
       });
     });
 
-    // 點擊彈窗背景關閉（交接遮罩除外，交接遮罩強制由下一位組員點擊座號解鎖）
     document.querySelectorAll(".modal-backdrop").forEach(backdrop => {
-      if (backdrop.id === "handoverModal") return;
       backdrop.addEventListener("click", e => {
-        if (e.target === backdrop) {
+        if (e.target === backdrop && backdrop.id !== "handoverModal") {
           closeModal(backdrop.id);
         }
       });
     });
 
-    // 1. 右上方純圖示按鈕 1：QR Code 掃碼連結
+    // 1. 右上方純圖示按鈕 1：QR Code 掃碼連結（標準 ISO/IEC 18004 離線引擎）
     function getDefaultShareUrl() {
       const href = window.location.href || "";
-      if (!href || href.startsWith("about:") || href.startsWith("blob:")) {
+      if (!href || href.startsWith("about:") || href.startsWith("blob:") || href.startsWith("data:")) {
         return "https://www.zoo.gov.taipei/";
       }
       return href;
+    }
+
+    function updateQrModalDisplay(rawValue) {
+      const text = (rawValue || "").trim() || "https://www.zoo.gov.taipei/";
+      const isFileProto = window.location.protocol === "file:" || text.toLowerCase().startsWith("file://");
+      const warnBox = document.getElementById("qrFileWarningBox");
+      if (warnBox) {
+        warnBox.style.display = isFileProto ? "block" : "none";
+      }
+
+      // 同步更新「測試開啟連結」超連結目標
+      const directLink = document.getElementById("qrDirectOpenLink");
+      if (directLink) {
+        const validHref = /^https?:\/\//i.test(text) ? text : "https://www.zoo.gov.taipei/";
+        directLink.href = validHref;
+      }
+
+      const info = OfflineQR.renderDual(
+        document.getElementById("qrSvgContainer"),
+        document.getElementById("qrCanvas"),
+        text
+      );
+      const cap = document.getElementById("qrMetaCaption");
+      if (cap && info) {
+        cap.textContent = `📷 ISO/IEC 18004 標準 QR（Version ${info.version} • ECC M）掃描即開`;
+      }
     }
 
     document.getElementById("btnOpenQr").addEventListener("click", () => {
       playClickSound();
       const input = document.getElementById("qrUrlInput");
       if (!input.value) input.value = getDefaultShareUrl();
-      OfflineQR.renderToCanvas(document.getElementById("qrCanvas"), input.value);
+      updateQrModalDisplay(input.value);
       openModal("qrModal");
     });
 
     document.getElementById("qrUrlInput").addEventListener("input", e => {
-      OfflineQR.renderToCanvas(document.getElementById("qrCanvas"), e.target.value || "https://www.zoo.gov.taipei/");
+      updateQrModalDisplay(e.target.value);
+    });
+
+    document.getElementById("btnFillSampleUrl").addEventListener("click", () => {
+      playClickSound();
+      const input = document.getElementById("qrUrlInput");
+      input.value = "https://www.zoo.gov.taipei/";
+      updateQrModalDisplay(input.value);
+      showSwitchToast("✨ 已填入台北市立動物園官方網址！");
     });
 
     document.getElementById("btnResetQrUrl").addEventListener("click", () => {
       playClickSound();
       const input = document.getElementById("qrUrlInput");
       input.value = getDefaultShareUrl();
-      OfflineQR.renderToCanvas(document.getElementById("qrCanvas"), input.value);
+      updateQrModalDisplay(input.value);
+    });
+
+    document.getElementById("btnDownloadQrPng").addEventListener("click", () => {
+      const input = document.getElementById("qrUrlInput");
+      updateQrModalDisplay(input.value);
+      const canvas = document.getElementById("qrCanvas");
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `台北市立動物園探險任務_QRCode.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      playSuccessFanfare();
+      showSwitchToast("⬇️ QR Code 高清圖片已開始下載！");
     });
 
     document.getElementById("btnCopyQrUrl").addEventListener("click", () => {
@@ -3472,7 +3873,7 @@
         refreshTeacherModeButtons();
       } else {
         playTone(220, 0.2, "sawtooth", 0.16);
-        document.getElementById("teacherAuthMsg").textContent = "❌ 密碼錯誤（提示：預設密碼為 2026）";
+        document.getElementById("teacherAuthMsg").textContent = "❌ 密碼錯誤，請重新輸入！";
       }
     }
 
