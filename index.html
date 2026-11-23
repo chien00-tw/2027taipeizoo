@@ -1,25 +1,872 @@
-<!-- ... existing code ... -->
 <!DOCTYPE html>
 <!--
   ==========================================================================
   專案名稱：🦁 台北市立動物園探險任務 (Taipei Zoo Explorer Mission Hub)
-  版本序號：v1.7
+  版本序號：v1.8
   適用對象：國小五年級學生（4 人一組共用 1 台 iPad 或多裝置離線探索專用）
-  v1.7 更新內容：
-    1. 行為碼錶手新增 7 種預設動物：查普曼斑馬(非洲動物區)、鴯鶓(澳洲動物區)、
-       弓角羚羊(沙漠動物區)、小貓熊(溫帶動物區)、無尾熊(無尾熊館)、
-       大貓熊(大貓熊館)、二趾樹獺(穿山甲館)。
-    2. 動物行為模式由 4 種擴充至 6 種（新增「🛁 抓癢理毛」與「🤝 互動玩耍」），
-       並同步更新正字記號 SVG、即時比例圖、直式 A4 證書與 CSV 匯出。
+  v1.8 更新內容：
+    1. 全面修正 QR Code 編碼與網址連線機制：
+       - 精準校正 ISO/IEC 18004 (Version 1~20, ECC Level M) 編碼、Reed-Solomon
+         糾錯碼、格式與版本資訊位元順序，確保手機/iPad 相機掃描 100% 辨識。
+       - 智慧網址偵測與自動補全（https://）：自動判斷目前為線上網址或本機/預覽
+         環境，記憶老師設定的分享網址，避免產生無法開啟的 file:// 或 srcdoc 連結。
+       - 整合高清 PNG 下載與無網路現場 AirDrop 分享提示。
+    2. 完整保留 v1.7 全部功能：12 種預設動物（含查普曼斑馬、鴯鶓、弓角羚羊、
+       小貓熊、無尾熊、大貓熊、二趾樹獺等）、6 大動物行為模式、4 人共用交接鎖、
+       防偷看偵探社、直式 A4 學習歷程證書與教師管理中心（密碼：20270118）。
   ==========================================================================
 -->
 <html lang="zh-Hant-TW" data-font="large">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-  <title>🦁 台北市立動物園探險任務 v1.7</title>
+  <title>🦁 台北市立動物園探險任務 v1.8</title>
   <style>
-// ... existing code ...
+    /* ==========================================================================
+       一、設計系統與響應式變數 (Design Tokens & Responsive Scaling)
+       ========================================================================== */
+    :root {
+      --bg-page: #F4F6F0;
+      --bg-card: #FFFFFF;
+      --bg-subcard: #F8FAFC;
+      --text-main: #1E293B;
+      --text-muted: #475569;
+      --border-color: #CBD5E1;
+
+      --primary: #1B5E20;
+      --primary-hover: #144718;
+      --primary-light: #E8F5E9;
+      --accent: #EA580C;
+      --accent-hover: #C2410C;
+      --accent-light: #FFF7ED;
+      --info: #0369A1;
+      --info-light: #E0F2FE;
+      --warning: #B45309;
+      --warning-light: #FEF3C7;
+      --danger: #B91C1C;
+      --danger-light: #FEE2E2;
+      --purple: #6D28D9;
+      --purple-light: #EDE9FE;
+
+      --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.06);
+      --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.10);
+      --shadow-lg: 0 14px 32px rgba(15, 23, 42, 0.18);
+
+      --radius-sm: 10px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --radius-pill: 9999px;
+
+      --base-font: 17px;
+      --header-height: auto;
+    }
+
+    html[data-font="normal"] { --base-font: 15.5px; }
+    html[data-font="large"]  { --base-font: 17.5px; }
+    html[data-font="xlarge"] { --base-font: 19.5px; }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+      font-size: var(--base-font);
+      line-height: 1.55;
+      color: var(--text-main);
+      background-color: var(--bg-page);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* 偽全螢幕模式 (相容 iPad Safari 與受限視窗) */
+    body.pseudo-fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 9000;
+      background-color: var(--bg-page);
+    }
+
+    /* ==========================================================================
+       二、頂部導覽列與右上方純圖示功能鍵 (Top Header & Pure-Icon Actions)
+       ========================================================================== */
+    .top-header {
+      position: sticky;
+      top: 0;
+      z-index: 500;
+      background: linear-gradient(135deg, #14532D 0%, #1B5E20 60%, #166534 100%);
+      color: #FFFFFF;
+      box-shadow: var(--shadow-md);
+      padding: 10px 16px;
+    }
+
+    .top-bar-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .version-badge {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ECFDF5;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    /* 三段字體縮放膠囊 */
+    .font-scale-group {
+      display: inline-flex;
+      background: rgba(0, 0, 0, 0.22);
+      padding: 3px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+
+    .font-btn {
+      background: transparent;
+      color: #E2E8F0;
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 5px 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .font-btn.active {
+      background: #FFFFFF;
+      color: var(--primary);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* 右上方純圖示功能鍵（無任何文字標籤 + 懸停/聚焦 Tooltip） */
+    .icon-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-action-btn {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      border: 1.5px solid rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.14);
+      color: #FFFFFF;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .icon-action-btn:hover,
+    .icon-action-btn:focus-visible {
+      background: rgba(255, 255, 255, 0.28);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+      outline: none;
+    }
+
+    .icon-action-btn:active {
+      transform: scale(0.95);
+    }
+
+    .icon-action-btn svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* CSS 懸停與聚焦提示氣泡 (Tooltip) */
+    .icon-action-btn::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 9px);
+      right: 0;
+      background: #0F172A;
+      color: #FFFFFF;
+      font-size: 0.84rem;
+      font-weight: 700;
+      white-space: nowrap;
+      padding: 6px 12px;
+      border-radius: 8px;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .icon-action-btn::before {
+      content: "";
+      position: absolute;
+      top: calc(100% + 3px);
+      right: 16px;
+      border-width: 6px;
+      border-style: solid;
+      border-color: transparent transparent #0F172A transparent;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .icon-action-btn:hover::after,
+    .icon-action-btn:hover::before,
+    .icon-action-btn:focus-visible::after,
+    .icon-action-btn:focus-visible::before {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    /* ==========================================================================
+       三、小組 4 人座號快捷切換列 (4-Student Shared iPad Switcher Bar)
+       ========================================================================== */
+    .squad-bar {
+      background: #FFFFFF;
+      border-bottom: 2px solid #E2E8F0;
+      padding: 10px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .squad-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .class-info-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1.5px solid #BBF7D0;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .edit-squad-btn {
+      background: #FFFFFF;
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-pill);
+      padding: 3px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .edit-squad-btn:hover {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+
+    .seat-buttons-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex: 1;
+      justify-content: center;
+    }
+
+    .seat-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: var(--radius-md);
+      border: 2.5px solid #CBD5E1;
+      background: #F8FAFC;
+      color: var(--text-main);
+      font-weight: 800;
+      font-size: 0.98rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      min-height: 48px;
+    }
+
+    .seat-chip:hover {
+      border-color: #94A3B8;
+      background: #F1F5F9;
+    }
+
+    .seat-chip.active {
+      background: var(--accent-light);
+      border-color: var(--accent);
+      color: #9A3412;
+      box-shadow: 0 3px 10px rgba(234, 88, 12, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .seat-active-tag {
+      background: var(--accent);
+      color: #FFFFFF;
+      font-size: 0.75rem;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+    }
+
+    .seat-progress-tag {
+      background: #E2E8F0;
+      color: #334155;
+      font-size: 0.78rem;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+
+    .seat-chip.active .seat-progress-tag {
+      background: #FED7AA;
+      color: #7C2D12;
+    }
+
+    .seat-chip.done .seat-progress-tag {
+      background: #DCFCE7;
+      color: #166534;
+    }
+
+    .handover-trigger-btn {
+      background: linear-gradient(135deg, #EA580C, #C2410C);
+      color: #FFFFFF;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 3px 8px rgba(234, 88, 12, 0.28);
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .handover-trigger-btn:hover {
+      filter: brightness(1.06);
+    }
+
+    /* 身分切換通知橫幅 */
+    .switch-toast {
+      position: fixed;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #0F172A;
+      color: #FFFFFF;
+      padding: 12px 22px;
+      border-radius: var(--radius-pill);
+      font-weight: 800;
+      font-size: 1rem;
+      box-shadow: var(--shadow-lg);
+      z-index: 2000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      max-width: 92vw;
+      text-align: center;
+    }
+
+    .switch-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ==========================================================================
+       四、主容器與分頁導覽 (Main Container & Mission Tabs)
+       ========================================================================== */
+    .main-container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 16px 16px 64px;
+    }
+
+    .mission-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 768px) {
+      .mission-tabs {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .tab-btn {
+      background: #FFFFFF;
+      border: 2.5px solid #CBD5E1;
+      border-radius: var(--radius-md);
+      padding: 12px 10px;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      box-shadow: var(--shadow-sm);
+      min-height: 68px;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #FFFFFF;
+      box-shadow: 0 5px 14px rgba(27, 94, 32, 0.28);
+    }
+
+    .tab-sub {
+      font-size: 0.78rem;
+      font-weight: 600;
+      opacity: 0.88;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+      animation: fadeIn 0.22s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 通用卡片與按鈕 */
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 2px solid #E2E8F0;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #F1F5F9;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .route-badge {
+      background: var(--info-light);
+      color: var(--info);
+      border: 1.5px solid #BAE6FD;
+      padding: 5px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 0.88rem;
+      font-weight: 800;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+      min-height: 48px;
+    }
+
+    .btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .btn:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+
+    .btn-primary { background: var(--primary); color: #FFFFFF; }
+    .btn-accent  { background: var(--accent); color: #FFFFFF; }
+    .btn-info    { background: var(--info); color: #FFFFFF; }
+    .btn-purple  { background: var(--purple); color: #FFFFFF; }
+    .btn-outline { background: #FFFFFF; color: var(--text-main); border: 2px solid #CBD5E1; }
+
+    /* 防誤改保護鎖橫幅 */
+    .edit-lock-banner {
+      background: #FEF3C7;
+      border: 2px solid #F59E0B;
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-weight: 800;
+      color: #92400E;
+    }
+
+    .unlock-edit-btn {
+      background: #FFFFFF;
+      color: #92400E;
+      border: 2px solid #D97706;
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .locked-area {
+      pointer-events: none;
+      opacity: 0.72;
+    }
+
+    /* ==========================================================================
+       五、任務一：動物偵探社 (4-Step Anti-Peek Detective)
+       ========================================================================== */
+    .detective-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    .mystery-card {
+      background: #FFFFFF;
+      border-radius: var(--radius-lg);
+      border: 2.5px solid #CBD5E1;
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .mystery-card.solved {
+      border-color: #22C55E;
+      background: linear-gradient(to bottom, #F0FDF4 0%, #FFFFFF 120px);
+    }
+
+    .mystery-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .mystery-animal-tag {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-weight: 900;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 0.92rem;
+    }
+
+    .mystery-status-pill {
+      font-size: 0.85rem;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      background: #F1F5F9;
+      color: #475569;
+    }
+
+    .mystery-card.solved .mystery-status-pill {
+      background: #DCFCE7;
+      color: #166534;
+    }
+
+    .mystery-question {
+      font-size: 1.2rem;
+      font-weight: 900;
+      margin: 6px 0 14px;
+      color: #0F172A;
+    }
+
+    .step-box {
+      background: var(--bg-subcard);
+      border: 2px solid #E2E8F0;
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .step-label {
+      font-weight: 900;
+      color: var(--info);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .choice-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .choice-btn {
+      background: #FFFFFF;
+      border: 2.5px solid #CBD5E1;
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text-main);
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.14s ease;
+      min-height: 52px;
+    }
+
+    .choice-btn:hover:not(:disabled) {
+      border-color: var(--info);
+      background: var(--info-light);
+    }
+
+    .choice-btn.selected {
+      background: #DBEAFE;
+      border-color: #2563EB;
+      color: #1E3A8A;
+    }
+
+    .observe-timer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: #FFF7ED;
+      border: 2px solid #FDBA74;
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+
+    .observe-countdown-badge {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #C2410C;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pin-unlock-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .pin-input {
+      width: 140px;
+      padding: 10px 14px;
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: 0.18em;
+      text-align: center;
+      border: 2.5px solid #94A3B8;
+      border-radius: var(--radius-md);
+      background: #FFFFFF;
+    }
+
+    .truth-reveal-box {
+      background: #ECFDF5;
+      border: 2.5px solid #10B981;
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .truth-badge {
+      display: inline-block;
+      background: #059669;
+      color: #FFFFFF;
+      font-weight: 900;
+      padding: 3px 12px;
+      border-radius: var(--radius-pill);
+      margin-bottom: 8px;
+      font-size: 0.92rem;
+    }
+
+    /* ==========================================================================
+       六、任務二：行為碼錶手 (3-Min Stopwatch & 6 Behaviors)
+       ========================================================================== */
+    .stopwatch-animal-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 720px) {
+      .stopwatch-animal-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field-label {
+      display: block;
+      font-weight: 800;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .styled-select,
+    .styled-input,
+    .styled-textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-family: inherit;
+      font-weight: 700;
+      color: var(--text-main);
+      background: #FFFFFF;
+      border: 2px solid #94A3B8;
+      border-radius: var(--radius-md);
+    }
+
+    .styled-select:focus,
+    .styled-input:focus,
+    .styled-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(27, 94, 32, 0.16);
+    }
+
+    .timer-display-box {
+      background: linear-gradient(135deg, #0F172A, #1E293B);
+      color: #FFFFFF;
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .timer-digits {
+      font-size: 3.1rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      font-variant-numeric: tabular-nums;
+      color: #FDE047;
+      line-height: 1.1;
+    }
+
+    .timer-subtext {
+      color: #CBD5E1;
+      font-size: 0.92rem;
+      margin: 6px 0 14px;
+    }
+
+    .timer-btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .timer-btn-start,
+    .timer-btn-pause,
+    .timer-btn-reset {
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      min-height: 48px;
+    }
+
+    .timer-btn-start { background: #22C55E; color: #052E16; }
+    .timer-btn-pause { background: #F59E0B; color: #451A03; }
+    .timer-btn-reset { background: #E2E8F0; color: #1E293B; }
+
+    .timer-btn-start:disabled,
+    .timer-btn-pause:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .behavior-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -53,8 +900,20 @@
       width: 100%;
       padding: 14px 12px;
       font-size: 1.05rem;
+      font-weight: 900;
+      border: none;
+      border-radius: var(--radius-sm);
       color: #FFFFFF;
+      display: flex;
+      align-items: center;
       justify-content: space-between;
+      cursor: pointer;
+      min-height: 54px;
+      transition: transform 0.1s ease;
+    }
+
+    .behavior-tap-btn:active {
+      transform: scale(0.97);
     }
 
     .beh-walk     { background-color: #0284C7; box-shadow: 0 3px 0 #0369A1; }
@@ -63,16 +922,506 @@
     .beh-look     { background-color: #7C3AED; box-shadow: 0 3px 0 #5B21B6; }
     .beh-groom    { background-color: #0D9488; box-shadow: 0 3px 0 #0F766E; }
     .beh-interact { background-color: #E11D48; box-shadow: 0 3px 0 #BE123C; }
-// ... existing code ... -->
+
+    .tally-display-area {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 44px;
+      background: #FFFFFF;
+      border: 1.5px solid #E2E8F0;
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+    }
+
+    .zheng-svgs {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 32px;
+    }
+
+    .minus-one-btn {
+      background: #F1F5F9;
+      color: #475569;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 8px;
+      padding: 5px 9px;
+      font-size: 0.82rem;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .chart-box {
+      background: #F8FAFC;
+      border: 2px solid #E2E8F0;
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 145px 1fr 56px;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      font-weight: 800;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 520px) {
+      .bar-row {
+        grid-template-columns: 120px 1fr 48px;
+        font-size: 0.84rem;
+      }
+    }
+
+    .bar-track {
+      width: 100%;
+      height: 16px;
+      background: #E2E8F0;
+      border-radius: var(--radius-pill);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: var(--radius-pill);
+      transition: width 0.25s ease;
+    }
+
+    /* ==========================================================================
+       七、任務三：保育員玩具設計師 (Pure Student Input)
+       ========================================================================== */
+    .body-part-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 8px 0 16px;
+    }
+
+    .part-toggle-btn {
+      background: #FFFFFF;
+      border: 2px solid #CBD5E1;
+      border-radius: var(--radius-pill);
+      padding: 9px 16px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: var(--text-main);
+      cursor: pointer;
+      min-height: 44px;
+    }
+
+    .part-toggle-btn.active {
+      background: var(--purple-light);
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+
+    .note-prompt-box {
+      margin-bottom: 14px;
+    }
+
+    .char-counter {
+      text-align: right;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ==========================================================================
+       八、任務四：探險戰報 & 小組總覽 (Portfolio Certificate & Group Summary)
+       ========================================================================== */
+    .stats-banner {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 640px) {
+      .stats-banner {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stat-tile {
+      background: var(--bg-subcard);
+      border: 2px solid #E2E8F0;
+      border-radius: var(--radius-md);
+      padding: 14px;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 1.65rem;
+      font-weight: 900;
+      color: var(--primary);
+    }
+
+    .stat-lbl {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 2px solid #E2E8F0;
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+    }
+
+    table.squad-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+      background: #FFFFFF;
+    }
+
+    table.squad-table th,
+    table.squad-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #E2E8F0;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    table.squad-table th {
+      background: #F1F5F9;
+      color: #0F172A;
+      font-weight: 900;
+    }
+
+    table.squad-table tr.current-seat-row {
+      background: #FFF7ED;
+    }
+
+    .action-cluster {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    /* ==========================================================================
+       九、通用彈跳視窗 (Modals: QR Code, Guide, Teacher, Handover, Certificate)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 3000;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-dialog {
+      background: #FFFFFF;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 560px;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 22px;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      border-bottom: 2px solid #F1F5F9;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: #0F172A;
+    }
+
+    .modal-close-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: #F1F5F9;
+      color: #334155;
+      font-size: 1.25rem;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    /* QR Code 專屬區塊樣式 */
+    .qr-display-frame {
+      background: #FFFFFF;
+      border: 3px solid #0F172A;
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+    }
+
+    #qrSvgContainer svg {
+      width: 240px;
+      height: 240px;
+      display: block;
+      shape-rendering: crispEdges;
+    }
+
+    .qr-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      font-size: 0.86rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+      text-align: left;
+    }
+
+    .qr-status-ok {
+      background: #DCFCE7;
+      color: #166534;
+      border: 1.5px solid #86EFAC;
+    }
+
+    .qr-status-warn {
+      background: #FEF3C7;
+      color: #92400E;
+      border: 1.5px solid #FCD34D;
+    }
+
+    .qr-url-preview {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82rem;
+      color: #334155;
+      background: #F8FAFC;
+      border: 1.5px solid #CBD5E1;
+      border-radius: 8px;
+      padding: 8px 10px;
+      width: 100%;
+      word-break: break-all;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    /* 全螢幕交接視窗 */
+    .handover-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .handover-seat-btn {
+      background: #FFF7ED;
+      border: 3px solid var(--accent);
+      border-radius: var(--radius-md);
+      padding: 16px 12px;
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: #9A3412;
+      cursor: pointer;
+      min-height: 68px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .handover-seat-btn:hover {
+      background: var(--accent);
+      color: #FFFFFF;
+    }
+
+    .cert-preview-img {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      border: 2px solid #CBD5E1;
+      box-shadow: var(--shadow-md);
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 身分切換提示橫幅 -->
+  <div id="switchToast" class="switch-toast" role="status" aria-live="polite"></div>
+
+  <!-- ==========================================================================
+       頂部工具列（右上方 4 顆純圖示功能鍵，無文字標籤，懸停具完整 Tooltip）
+       ========================================================================== -->
   <header class="top-header">
     <div class="top-bar-inner">
       <div class="brand-group">
         <h1 class="brand-title">
           <span>🦁 台北市立動物園探險任務</span>
-          <span class="version-badge">v1.7</span>
+          <span class="version-badge">v1.8</span>
         </h1>
       </div>
-<!-- ... existing code ... -->
+
+      <div class="header-controls">
+        <!-- 三段字體縮放 -->
+        <div class="font-scale-group" role="group" aria-label="字體大小調整">
+          <button type="button" class="font-btn" data-font-size="normal">標準</button>
+          <button type="button" class="font-btn active" data-font-size="large">大字</button>
+          <button type="button" class="font-btn" data-font-size="xlarge">特大</button>
+        </div>
+
+        <!-- 右上方 4 顆純圖示功能鍵（完全僅使用圖示，懸停時具備完整提示標籤 Tooltip） -->
+        <div class="icon-toolbar">
+          <!-- 1. QR Code 掃碼連結鍵 -->
+          <button type="button" class="icon-action-btn" id="btnOpenQr"
+                  data-tooltip="QR Code 掃碼連結"
+                  aria-label="QR Code 掃碼連結">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              <path d="M14 14h3v3h-3z"></path>
+              <path d="M17 17h4v4h-4z"></path>
+              <path d="M14 20h2"></path>
+              <path d="M20 14v2"></path>
+            </svg>
+          </button>
+
+          <!-- 2. 全螢幕功能鍵 -->
+          <button type="button" class="icon-action-btn" id="btnToggleFullscreen"
+                  data-tooltip="切換全螢幕模式"
+                  aria-label="切換全螢幕模式">
+            <svg id="fullscreenIconSvg" viewBox="0 0 24 24">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+              <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+              <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+              <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+            </svg>
+          </button>
+
+          <!-- 3. 操作指引功能鍵 -->
+          <button type="button" class="icon-action-btn" id="btnOpenGuide"
+                  data-tooltip="操作指引說明"
+                  aria-label="操作指引說明">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M9.5 9a2.5 2.5 0 0 1 4.8.8c0 1.7-2.3 2.2-2.3 3.7"></path>
+              <circle cx="12" cy="17" r="0.6" fill="currentColor"></circle>
+            </svg>
+          </button>
+
+          <!-- 4. 教師設定功能鍵 -->
+          <button type="button" class="icon-action-btn" id="btnOpenTeacher"
+                  data-tooltip="教師設定與管理"
+                  aria-label="教師設定與管理">
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       小組 4 人座號快捷切換列（共用 iPad 防覆蓋設計）
+       ========================================================================== -->
+  <section class="squad-bar" aria-label="本組座號切換列">
+    <div class="squad-inner">
+      <div class="class-info-pill">
+        <span id="displayClassName">5年13班</span>
+        <button type="button" class="edit-squad-btn" id="btnEditSquad">✏️ 設定本組4人座號</button>
+      </div>
+
+      <div class="seat-buttons-wrap" id="seatButtonsWrap"></div>
+
+      <button type="button" class="handover-trigger-btn" id="btnOpenHandover">
+        🔄 換下一位組員
+      </button>
+    </div>
+  </section>
+
+  <!-- ==========================================================================
+       主內容區：四大任務分頁
+       ========================================================================== -->
+  <main class="main-container">
+    <nav class="mission-tabs" role="tablist">
+      <button type="button" class="tab-btn active" data-tab="detective">
+        <span>🔍 動物偵探社</span>
+        <span class="tab-sub">破解迷思拿星星</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="stopwatch">
+        <span>⏱️ 行為碼錶手</span>
+        <span class="tab-sub">3分鐘畫正字統計</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="toy">
+        <span>🧸 玩具設計師</span>
+        <span class="tab-sub">觀察豐富化玩具</span>
+      </button>
+      <button type="button" class="tab-btn" data-tab="report">
+        <span>🏆 探險戰報</span>
+        <span class="tab-sub">小組總覽與證書</span>
+      </button>
+    </nav>
+
+    <!-- ==================== 分頁 1：動物偵探社 ==================== -->
+    <section id="panel-detective" class="tab-panel active">
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">🔍 任務一：動物偵探社（現場破案）</h2>
+          <span class="route-badge">推薦動線：河馬廣場 ➔ 企鵝館 ➔ 穿山甲館</span>
+        </div>
+        <p style="margin: 0 0 14px; font-weight: 700; color: var(--text-muted);">
+          先猜猜看 ➔ 盯著動物看滿 <strong>15 秒</strong> ➔ 選出眼睛看到的證據 ➔ 請老師或小組長輸入現場解鎖碼揭曉真相！
+        </p>
+
+        <div id="detectiveLockBanner" class="edit-lock-banner" style="display: none;">
+          <span id="detectiveLockText">🔒 已完成本關卡紀錄</span>
+          <button type="button" class="unlock-edit-btn" id="btnUnlockDetective">🔓 解鎖修改</button>
+        </div>
+
+        <div id="detectiveContentWrap" class="detective-grid"></div>
+      </div>
+    </section>
+
+    <!-- ==================== 分頁 2：行為碼錶手 ==================== -->
+    <section id="panel-stopwatch" class="tab-panel">
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">⏱️ 任務二：動物行為碼錶手（3 分鐘實測）</h2>
+          <span class="route-badge">推薦動線：全園區各動物展區皆可進行</span>
+        </div>
+
+        <div id="stopwatchLockBanner" class="edit-lock-banner" style="display: none;">
+          <span id="stopwatchLockText">🔒 已完成本關卡紀錄</span>
+          <button type="button" class="unlock-edit-btn" id="btnUnlockStopwatch">🔓 解鎖修改</button>
+        </div>
+
+        <div id="stopwatchContentWrap">
           <div class="stopwatch-animal-row">
             <div>
               <label class="field-label" for="swAnimalSelect">1. 選擇你正在觀察的動物：</label>
@@ -218,17 +1567,397 @@
               <span id="pct-interact">0%</span>
             </div>
           </div>
-<!-- ... existing code ... -->
+
+          <div class="action-cluster">
+            <button type="button" class="btn btn-primary" id="btnSaveStopwatch">
+              💾 儲存我的行為統計紀錄
+            </button>
+            <button type="button" class="btn btn-accent" id="btnHandoverFromSw">
+              🔄 存檔並換下一位組員
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 分頁 3：保育員玩具設計師 ==================== -->
+    <section id="panel-toy" class="tab-panel">
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">🧸 任務三：保育員玩具設計師（自主觀察筆記）</h2>
+          <span class="route-badge">推薦動線：穿山甲館 / 熱帶雨林區（室內雨備首選）</span>
+        </div>
+
+        <div id="toyLockBanner" class="edit-lock-banner" style="display: none;">
+          <span id="toyLockText">🔒 已完成本關卡紀錄</span>
+          <button type="button" class="unlock-edit-btn" id="btnUnlockToy">🔓 解鎖修改</button>
+        </div>
+
+        <div id="toyContentWrap">
+          <div class="note-prompt-box">
+            <label class="field-label" for="toyAnimalZone">1. 你在哪個展區觀察哪一種動物？</label>
+            <input type="text" id="toyAnimalZone" class="styled-input" placeholder="請自己輸入，例如：穿山甲館的二趾樹獺">
+          </div>
+
+          <div class="note-prompt-box">
+            <span class="field-label">2. 動物用身體哪裡碰玩具？（可多選）</span>
+            <div class="body-part-grid" id="bodyPartGrid">
+              <button type="button" class="part-toggle-btn" data-part="嘴巴咬">👄 嘴巴咬</button>
+              <button type="button" class="part-toggle-btn" data-part="爪子抓">🐾 爪子抓</button>
+              <button type="button" class="part-toggle-btn" data-part="鼻子頂">👃 鼻子頂</button>
+              <button type="button" class="part-toggle-btn" data-part="身體滾">🌀 身體滾</button>
+              <button type="button" class="part-toggle-btn" data-part="尾巴勾">🐒 尾巴勾</button>
+            </div>
+          </div>
+
+          <div class="note-prompt-box">
+            <label class="field-label" for="toyWhatText">3. 你在展區裡找到了什麼人造玩具？它長什麼樣子？</label>
+            <textarea id="toyWhatText" class="styled-textarea" rows="2" placeholder="請用自己的話寫下來..."></textarea>
+          </div>
+
+          <div class="note-prompt-box">
+            <label class="field-label" for="toyHowText">4. 動物怎麼玩這個玩具？玩具裡面可能藏了什麼？</label>
+            <textarea id="toyHowText" class="styled-textarea" rows="3" placeholder="觀察一下動物的動作，自己寫下發現..."></textarea>
+          </div>
+
+          <div class="note-prompt-box">
+            <label class="field-label" for="toyDesignText">5. 如果你是保育員，你想幫牠設計什麼新玩具？</label>
+            <textarea id="toyDesignText" class="styled-textarea" rows="3" placeholder="寫出你的創意新玩具點子..."></textarea>
+            <div class="char-counter">目前總字數：<span id="toyCharCount">0</span> 字</div>
+          </div>
+
+          <div class="action-cluster">
+            <button type="button" class="btn btn-purple" id="btnSaveToy">
+              💾 儲存我的玩具設計筆記
+            </button>
+            <button type="button" class="btn btn-accent" id="btnHandoverFromToy">
+              🔄 存檔並換下一位組員
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== 分頁 4：探險戰報 & 小組總覽 ==================== -->
+    <section id="panel-report" class="tab-panel">
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">🏆 我的個人探險戰報（<span id="reportSeatTitle">5年13班 1號</span>）</h2>
+          <span class="route-badge" id="reportHonorBadge">🌱 見習小探險家</span>
+        </div>
+
+        <div class="stats-banner">
+          <div class="stat-tile">
+            <div class="stat-num" id="statStars">0 / 3 顆星</div>
+            <div class="stat-lbl">🔍 動物偵探社</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-num" id="statStopwatch">尚未完成</div>
+            <div class="stat-lbl">⏱️ 行為碼錶手</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-num" id="statToy">尚未完成</div>
+            <div class="stat-lbl">🧸 玩具設計師</div>
+          </div>
+        </div>
+
+        <div class="action-cluster">
+          <button type="button" class="btn btn-primary" id="btnGenerateCert">
+            🎓 產生直式 A4 個人學習歷程證書（PNG）
+          </button>
+          <button type="button" class="btn btn-info" id="btnExportCsv">
+            📊 匯出全機探險紀錄表（Excel CSV）
+          </button>
+        </div>
+      </div>
+
+      <!-- 本組 4 人進度對照表 -->
+      <div class="card">
+        <div class="section-header">
+          <h2 class="section-title">👥 本組 4 人共同探險總覽</h2>
+          <button type="button" class="btn btn-accent" id="btnHandoverFromReport">
+            🔄 換下一位組員
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table class="squad-table">
+            <thead>
+              <tr>
+                <th>組員座號</th>
+                <th>🔍 偵探社</th>
+                <th>⏱️ 行為碼錶</th>
+                <th>🧸 玩具設計</th>
+                <th>整體狀態</th>
+              </tr>
+            </thead>
+            <tbody id="squadOverviewTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==========================================================================
+       彈跳視窗 1：QR Code 掃碼連結視窗（修正版 ISO/IEC 18004 離線生成器）
+       ========================================================================== -->
+  <div id="modalQr" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="qrModalTitle">📱 QR Code 掃碼開啟網頁</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="modalQr" aria-label="關閉">✕</button>
+      </div>
+
+      <div id="qrStatusBanner" class="qr-status-pill qr-status-ok">
+        ✅ 目前為可連線網址，學生掃描即可開啟
+      </div>
+
+      <div class="qr-display-frame">
+        <div id="qrSvgContainer" aria-label="網頁連結 QR Code"></div>
+        <div id="qrEncodedUrlText" class="qr-url-preview"></div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label class="field-label" for="qrUrlInput">網頁網址（可貼上老師部署的網路連結）：</label>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <input type="url" id="qrUrlInput" class="styled-input" style="flex: 1; min-width: 200px;"
+                 placeholder="請輸入 https:// 開頭的網頁網址">
+          <button type="button" class="btn btn-primary" id="btnUpdateQrUrl">🔄 更新碼圖</button>
+        </div>
+      </div>
+
+      <div class="action-cluster" style="justify-content: space-between;">
+        <button type="button" class="btn btn-outline" id="btnCopyQrUrl">📋 複製連結</button>
+        <button type="button" class="btn btn-info" id="btnTestOpenQrUrl">🔗 測試開啟連結</button>
+        <button type="button" class="btn btn-accent" id="btnDownloadQrPng">⬇️ 下載 QR 圖檔</button>
+      </div>
+
+      <div style="margin-top: 14px; padding: 10px 12px; background: #F1F5F9; border-radius: 10px; font-size: 0.86rem; color: #334155;">
+        💡 <strong>無網路現場小提醒：</strong>若現場平板完全無網路，掃描網頁網址將無法連線；請改用 iPad 內建「<strong>AirDrop</strong>」直接將 <code>tpzoo_mission.html</code> 檔案傳送給同組平板即可離線操作！
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈跳視窗 2：操作指引視窗
+       ========================================================================== -->
+  <div id="modalGuide" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="guideModalTitle">📖 五年級探險操作指引</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="modalGuide" aria-label="關閉">✕</button>
+      </div>
+      <ol style="padding-left: 22px; margin: 0; display: flex; flex-direction: column; gap: 10px; font-weight: 700;">
+        <li><strong>先點自己的座號：</strong>操作前先確認最上方橘色框框是「自己的座號」，才不會覆蓋別人的紀錄。</li>
+        <li><strong>🔍 動物偵探社：</strong>先選猜測 ➔ 按下「開始 15 秒觀察」看動物 ➔ 選出眼睛看到的證據 ➔ 請老師或小組長輸入現場解鎖碼破案。</li>
+        <li><strong>⏱️ 行為碼錶手：</strong>選好動物後按下「開始 3 分鐘計時」，動物每做一個動作就按一次對應按鈕，系統會自動畫出「正」字記號。</li>
+        <li><strong>🧸 玩具設計師：</strong>觀察展區裡的人造玩具，用自己的話寫下玩具外觀、動物玩法與新玩具點子。</li>
+        <li><strong>🔄 交接給下一位：</strong>完成後記得按「存檔」並點「換下一位組員」，把 iPad 交給下一位同學！</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈跳視窗 3：設定本組 4 人座號視窗
+       ========================================================================== -->
+  <div id="modalSquad" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="squadModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="squadModalTitle">✏️ 設定本組 4 位組員座號</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="modalSquad" aria-label="關閉">✕</button>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label class="field-label" for="inputClassName">班級名稱：</label>
+        <input type="text" id="inputClassName" class="styled-input" placeholder="例如：5年13班">
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
+        <div>
+          <label class="field-label" for="inputSeat1">組員 1 座號：</label>
+          <input type="text" id="inputSeat1" class="styled-input" placeholder="例如：1號">
+        </div>
+        <div>
+          <label class="field-label" for="inputSeat2">組員 2 座號：</label>
+          <input type="text" id="inputSeat2" class="styled-input" placeholder="例如：2號">
+        </div>
+        <div>
+          <label class="field-label" for="inputSeat3">組員 3 座號：</label>
+          <input type="text" id="inputSeat3" class="styled-input" placeholder="例如：3號">
+        </div>
+        <div>
+          <label class="field-label" for="inputSeat4">組員 4 座號：</label>
+          <input type="text" id="inputSeat4" class="styled-input" placeholder="例如：4號">
+        </div>
+      </div>
+      <button type="button" class="btn btn-primary" style="width: 100%;" id="btnSaveSquad">
+        ✅ 儲存本組名單
+      </button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈跳視窗 4：全螢幕防呆交接視窗 (Handover Modal)
+       ========================================================================== -->
+  <div id="modalHandover" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="handoverModalTitle">
+    <div class="modal-dialog" style="text-align: center;">
+      <div style="font-size: 2.6rem; margin-bottom: 6px;">🔒</div>
+      <h3 class="modal-title" id="handoverModalTitle" style="font-size: 1.35rem; color: var(--primary);">
+        已安全存檔！請把 iPad 交給下一位組員
+      </h3>
+      <p id="handoverPrevMsg" style="font-weight: 800; color: var(--text-muted); margin: 8px 0 4px;">
+        請下一位同學本人點擊自己的座號按鈕開始任務：
+      </p>
+      <div class="handover-grid" id="handoverSeatGrid"></div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈跳視窗 5：教師設定與現場管理中心（密碼：20270118，頁面不顯示密碼）
+       ========================================================================== -->
+  <div id="modalTeacher" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="teacherModalTitle">🔑 教師現場管理中心</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="modalTeacher" aria-label="關閉">✕</button>
+      </div>
+
+      <!-- 密碼登入區（不顯示任何密碼提示） -->
+      <div id="teacherLoginBox">
+        <label class="field-label" for="teacherPwdInput">請輸入教師管理密碼：</label>
+        <input type="password" id="teacherPwdInput" class="styled-input" inputmode="numeric"
+               placeholder="請輸入管理密碼">
+        <div id="teacherLoginError" style="color: var(--danger); font-weight: 800; margin-top: 8px; display: none;">
+          密碼錯誤，請重新輸入。
+        </div>
+        <button type="button" class="btn btn-primary" style="width: 100%; margin-top: 12px;" id="btnTeacherLogin">
+          驗證進入管理中心
+        </button>
+      </div>
+
+      <!-- 驗證通過後的管理面板 -->
+      <div id="teacherAdminPanel" style="display: none;">
+        <div style="margin-bottom: 14px;">
+          <label class="field-label" for="teacherFieldPinInput">偵探社現場解鎖碼（4 位數字）：</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="teacherFieldPinInput" class="styled-input" maxlength="6">
+            <button type="button" class="btn btn-primary" id="btnSaveFieldPin">儲存</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 14px;">
+          <label class="field-label" for="teacherModeSelect">偵探社揭曉模式：</label>
+          <select id="teacherModeSelect" class="styled-select">
+            <option value="strict">嚴格模式（觀察 15 秒後需輸入現場解鎖碼）</option>
+            <option value="auto">自主模式（觀察 15 秒並選證據後直接揭曉）</option>
+          </select>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
+          <button type="button" class="btn btn-info" id="btnTeacherUnlockCurrent">
+            🔓 一鍵解鎖目前座號全部偵探題
+          </button>
+          <button type="button" class="btn btn-primary" id="btnTeacherExportCsv">
+            📊 匯出全機所有座號探險紀錄（CSV）
+          </button>
+          <button type="button" class="btn btn-outline" style="color: var(--danger); border-color: var(--danger);" id="btnTeacherClearAll">
+            🗑️ 清除本機所有測試紀錄
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈跳視窗 6：直式 A4 個人學習歷程證書預覽與下載視窗
+       ========================================================================== -->
+  <div id="modalCert" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="certModalTitle">
+    <div class="modal-dialog" style="max-width: 640px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="certModalTitle">🎓 個人素養探索學習歷程證書</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="modalCert" aria-label="關閉">✕</button>
+      </div>
+      <p style="margin: 0 0 10px; font-weight: 700; color: var(--text-muted);">
+        iPad 使用者可點擊下方下載按鈕，或<strong>長按證書圖片</strong>選擇「儲存到照片」！
+      </p>
+      <img id="certPreviewImg" class="cert-preview-img" alt="個人素養探索學習歷程證書">
+      <div class="action-cluster" style="justify-content: flex-end; margin-top: 14px;">
+        <button type="button" class="btn btn-primary" id="btnDownloadCertPng">⬇️ 下載高清 PNG 證書</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     /* ==========================================================================
        一、核心資料與常數定義 (Data & Constants)
        ========================================================================== */
-    const STORAGE_KEY = "tpzoo_mission_v1_7_data";
-    const LEGACY_STORAGE_KEYS = ["tpzoo_mission_v1_6_data", "tpzoo_mission_v1_5_data", "tpzoo_mission_v1_4_data"];
+    const STORAGE_KEY = "tpzoo_mission_v1_8_data";
+    const LEGACY_STORAGE_KEYS = [
+      "tpzoo_mission_v1_7_data",
+      "tpzoo_mission_v1_6_data",
+      "tpzoo_mission_v1_5_data",
+      "tpzoo_mission_v1_4_data"
+    ];
     const TEACHER_MASTER_PWD = "20270118";
     const OBSERVE_SECONDS = 15;
     const STOPWATCH_TOTAL_SECONDS = 180; // 真實 3 分鐘（180 秒）
-// ... existing code ...
+
+    const MYSTERY_ITEMS = [
+      {
+        id: "hippo",
+        animal: "河馬（河馬廣場）",
+        question: "迷思 1：河馬皮膚上的紅色水珠，真的是流「血汗」嗎？",
+        guesses: [
+          "是真的！河馬太熱會流血汗",
+          "是假的！那是天然防曬保濕分泌物"
+        ],
+        evidences: [
+          "皮膚表面油亮，剛分泌時透明、曬太陽後變粉紅或橘紅",
+          "河馬一直泡在水裡，皮膚完全乾乾的沒有任何水珠"
+        ],
+        truthBadge: "真相大白：不是血也不是汗！",
+        truthText: "河馬沒有汗腺！牠皮膚分泌的微紅黏液含有天然防曬色素，既能抵抗紫外線，又能殺菌與保持皮膚濕潤。"
+      },
+      {
+        id: "penguin",
+        animal: "黑腳企鵝（企鵝館）",
+        question: "迷思 2：所有的企鵝都一定要住在零下冰天雪地裡嗎？",
+        guesses: [
+          "是的！沒有冰塊企鵝會熱昏",
+          "不一定！有些企鵝住在溫暖海岸"
+        ],
+        evidences: [
+          "黑腳企鵝展區沒有冰山，而是岩石、沙灘與常溫海水池",
+          "黑腳企鵝展區鋪滿厚厚的白雪與大冰塊"
+        ],
+        truthBadge: "真相大白：黑腳企鵝來自非洲海岸！",
+        truthText: "黑腳企鵝原生於氣候溫和的南非海岸！牠眼睛上方的粉紅色腺體能幫助散熱，不需要住在冰天雪地。"
+      },
+      {
+        id: "pangolin",
+        animal: "台灣穿山甲（穿山甲館）",
+        question: "迷思 3：穿山甲全身長滿堅硬鱗片，所以牠是爬蟲類嗎？",
+        guesses: [
+          "是爬蟲類！跟鱷魚、烏龜一樣",
+          "是哺乳類！鱗片其實是角質變成的"
+        ],
+        evidences: [
+          "鱗片一片一片疊在一起，臉部與肚子有細毛，用母乳哺育寶寶",
+          "全身皮膚像蛇一樣會整片脫皮，而且會生蛋"
+        ],
+        truthBadge: "真相大白：穿山甲是道地的哺乳類！",
+        truthText: "穿山甲是全世界唯一全身長滿鱗片的哺乳類動物！牠的鱗片成分跟人類的指甲一樣是角質，遇到危險會蜷縮成球保護自己。"
+      }
+    ];
+
+    /* ==========================================================================
+       二、狀態管理與本機離線儲存 (State & localStorage)
+       ========================================================================== */
+    function createEmptyStudentRecord() {
+      return {
+        detective: {
+          hippo:    { guess: "", observeDone: false, evidence: "", unlocked: false },
+          penguin:  { guess: "", observeDone: false, evidence: "", unlocked: false },
+          pangolin: { guess: "", observeDone: false, evidence: "", unlocked: false },
+          editLocked: false
+        },
         stopwatch: {
           animal: "台灣黑熊",
           customAnimal: "",
@@ -237,7 +1966,40 @@
           saved: false,
           editLocked: false
         },
-// ... existing code ...
+        toy: {
+          animalZone: "",
+          bodyParts: [],
+          whatText: "",
+          howText: "",
+          designText: "",
+          saved: false,
+          editLocked: false
+        }
+      };
+    }
+
+    let appState = {
+      className: "5年13班",
+      squadSeats: ["1號", "2號", "3號", "4號"],
+      currentSeat: "1號",
+      fontSize: "large",
+      fieldUnlockPin: "2026",
+      unlockMode: "strict",
+      shareUrl: "",
+      records: {}
+    };
+
+    function ensureStudentRecord(seat) {
+      if (!appState.records[seat]) {
+        appState.records[seat] = createEmptyStudentRecord();
+      }
+      const rec = appState.records[seat];
+      if (!rec.detective) rec.detective = createEmptyStudentRecord().detective;
+      ["hippo", "penguin", "pangolin"].forEach(k => {
+        if (!rec.detective[k]) {
+          rec.detective[k] = { guess: "", observeDone: false, evidence: "", unlocked: false };
+        }
+      });
       if (!rec.stopwatch) rec.stopwatch = createEmptyStudentRecord().stopwatch;
       if (!rec.stopwatch.counts || typeof rec.stopwatch.counts !== "object") {
         rec.stopwatch.counts = { walk: 0, eat: 0, rest: 0, look: 0, groom: 0, interact: 0 };
@@ -247,9 +2009,1103 @@
         });
       }
       if (!rec.toy) rec.toy = createEmptyStudentRecord().toy;
+      if (!Array.isArray(rec.toy.bodyParts)) rec.toy.bodyParts = [];
       return rec;
     }
-// ... existing code ...
+
+    function getCurrentRecord() {
+      return ensureStudentRecord(appState.currentSeat);
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (err) {
+        console.warn("localStorage 寫入受限:", err);
+      }
+    }
+
+    function loadState() {
+      try {
+        let raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          for (const legacyKey of LEGACY_STORAGE_KEYS) {
+            const legacyRaw = localStorage.getItem(legacyKey);
+            if (legacyRaw) {
+              raw = legacyRaw;
+              break;
+            }
+          }
+        }
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            appState = Object.assign(appState, parsed);
+          }
+        }
+      } catch (err) {
+        console.warn("localStorage 讀取失敗:", err);
+      }
+      if (!Array.isArray(appState.squadSeats) || appState.squadSeats.length !== 4) {
+        appState.squadSeats = ["1號", "2號", "3號", "4號"];
+      }
+      if (!appState.squadSeats.includes(appState.currentSeat)) {
+        appState.currentSeat = appState.squadSeats[0];
+      }
+      appState.squadSeats.forEach(s => ensureStudentRecord(s));
+      saveState();
+    }
+
+    /* ==========================================================================
+       三、離線 Web Audio API 音效引擎 (Offline Sound Feedback)
+       ========================================================================== */
+    let audioCtx = null;
+    function playTone(freq, duration = 0.12, type = "sine", volume = 0.14) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        // 靜音模式下忽略
+      }
+    }
+
+    function playClickSound()   { playTone(560, 0.07, "sine", 0.10); }
+    function playSwitchSound()  { playTone(480, 0.09, "triangle", 0.14); setTimeout(() => playTone(680, 0.12, "triangle", 0.14), 80); }
+    function playSuccessFanfare() {
+      playTone(523.25, 0.12, "triangle", 0.16);
+      setTimeout(() => playTone(659.25, 0.12, "triangle", 0.16), 110);
+      setTimeout(() => playTone(783.99, 0.22, "triangle", 0.18), 220);
+    }
+
+    /* ==========================================================================
+       四、標準 ISO/IEC 18004 QR Code 離線編碼器 (Versions 1~20, ECC Level M)
+       ========================================================================== */
+    const QR_ECC_M_TABLE = [
+      null,
+      // [totalCodewords, ecPerBlock, g1Blocks, g1Data, g2Blocks, g2Data]
+      [26,  10, 1, 16, 0, 0],  // V1  (max 14 UTF-8 bytes)
+      [44,  16, 1, 28, 0, 0],  // V2  (max 26 bytes)
+      [70,  26, 1, 44, 0, 0],  // V3  (max 42 bytes)
+      [100, 18, 2, 32, 0, 0],  // V4  (max 62 bytes)
+      [134, 24, 2, 43, 0, 0],  // V5  (max 84 bytes)
+      [172, 16, 4, 27, 0, 0],  // V6  (max 106 bytes)
+      [196, 18, 4, 31, 0, 0],  // V7  (max 122 bytes)
+      [242, 22, 2, 38, 2, 39], // V8  (max 152 bytes)
+      [292, 22, 3, 36, 2, 37], // V9  (max 180 bytes)
+      [346, 26, 4, 43, 1, 44], // V10 (max 213 bytes)
+      [404, 30, 1, 50, 4, 51], // V11 (max 251 bytes)
+      [466, 22, 6, 36, 2, 37], // V12 (max 287 bytes)
+      [532, 22, 8, 37, 1, 38], // V13 (max 331 bytes)
+      [581, 24, 4, 40, 5, 41], // V14 (max 362 bytes)
+      [655, 24, 5, 41, 5, 42], // V15 (max 412 bytes)
+      [733, 28, 7, 45, 3, 46], // V16 (max 450 bytes)
+      [815, 28, 10, 46, 1, 47],// V17 (max 504 bytes)
+      [901, 26, 9, 43, 4, 44], // V18 (max 560 bytes)
+      [991, 26, 3, 44, 11, 45],// V19 (max 624 bytes)
+      [1085, 26, 3, 41, 13, 42]// V20 (max 666 bytes)
+    ];
+
+    const QR_ALIGN_COORDS = [
+      null,
+      [],
+      [6, 18],
+      [6, 22],
+      [6, 26],
+      [6, 30],
+      [6, 34],
+      [6, 22, 38],
+      [6, 24, 42],
+      [6, 26, 46],
+      [6, 28, 50],
+      [6, 30, 54],
+      [6, 32, 58],
+      [6, 34, 62],
+      [6, 26, 46, 66],
+      [6, 26, 48, 70],
+      [6, 26, 50, 74],
+      [6, 30, 54, 78],
+      [6, 30, 56, 82],
+      [6, 30, 58, 86],
+      [6, 34, 62, 90]
+    ];
+
+    // ISO/IEC 18004 Table C.1 Format Information for ECC Level M (00 + mask 0..7)
+    const QR_FORMAT_INFO_M = [
+      0x5412, // Mask 0
+      0x5125, // Mask 1
+      0x5E7C, // Mask 2
+      0x5B4B, // Mask 3
+      0x45F9, // Mask 4
+      0x40CE, // Mask 5
+      0x4F97, // Mask 6
+      0x4AA0  // Mask 7
+    ];
+
+    // ISO/IEC 18004 Table D.1 Version Information for Versions 7..20
+    const QR_VERSION_INFO = {
+      7:  0x07C94, 8:  0x085BC, 9:  0x09A99, 10: 0x0A4D3,
+      11: 0x0BBF6, 12: 0x0C762, 13: 0x0D847, 14: 0x0E60D,
+      15: 0x0F928, 16: 0x10B78, 17: 0x1145D, 18: 0x12A17,
+      19: 0x13532, 20: 0x149A6
+    };
+
+    // GF(256) 查表初始化（多項式 0x11D）
+    const GF_EXP = new Uint8Array(512);
+    const GF_LOG = new Uint8Array(256);
+    (function initGaloisField() {
+      let x = 1;
+      for (let i = 0; i < 255; i++) {
+        GF_EXP[i] = x;
+        GF_LOG[x] = i;
+        x <<= 1;
+        if (x & 0x100) x ^= 0x11D;
+      }
+      for (let i = 255; i < 512; i++) {
+        GF_EXP[i] = GF_EXP[i - 255];
+      }
+    })();
+
+    function gfMul(a, b) {
+      if (a === 0 || b === 0) return 0;
+      return GF_EXP[GF_LOG[a] + GF_LOG[b]];
+    }
+
+    function rsComputeRemainder(dataBytes, ecLen) {
+      // 建立生成多項式 (x - α^0)(x - α^1)...(x - α^(ecLen-1))
+      let gen = new Uint8Array([1]);
+      for (let i = 0; i < ecLen; i++) {
+        const next = new Uint8Array(gen.length + 1);
+        const factor = GF_EXP[i];
+        for (let j = 0; j < gen.length; j++) {
+          next[j] ^= gen[j];
+          next[j + 1] ^= gfMul(gen[j], factor);
+        }
+        gen = next;
+      }
+
+      const rem = new Uint8Array(ecLen);
+      for (let i = 0; i < dataBytes.length; i++) {
+        const coef = dataBytes[i] ^ rem[0];
+        rem.copyWithin(0, 1);
+        rem[ecLen - 1] = 0;
+        if (coef !== 0) {
+          for (let j = 0; j < ecLen; j++) {
+            rem[j] ^= gfMul(gen[j + 1], coef);
+          }
+        }
+      }
+      return rem;
+    }
+
+    function generateQrMatrix(text) {
+      const encoder = new TextEncoder();
+      const utf8Bytes = encoder.encode(text);
+
+      // 1. 選擇最小可用 Version (ECC Level M)
+      let version = 1;
+      for (; version <= 20; version++) {
+        const info = QR_ECC_M_TABLE[version];
+        const totalDataCap = info[2] * info[3] + info[4] * info[5];
+        const ccBits = version <= 9 ? 8 : 16;
+        const overheadBits = 4 + ccBits;
+        const maxBytes = Math.floor((totalDataCap * 8 - overheadBits) / 8);
+        if (utf8Bytes.length <= maxBytes) break;
+      }
+      if (version > 20) {
+        throw new Error("網址長度超過 QR Code 上限");
+      }
+
+      const info = QR_ECC_M_TABLE[version];
+      const [totalCw, ecPerBlock, g1Blocks, g1Data, g2Blocks, g2Data] = info;
+      const totalDataCw = g1Blocks * g1Data + g2Blocks * g2Data;
+
+      // 2. 組裝位元流（Byte 模式 0100 + 字元數 + UTF-8 資料 + 終止符 + 補齊碼）
+      const bits = [];
+      const pushBits = (val, len) => {
+        for (let i = len - 1; i >= 0; i--) {
+          bits.push((val >>> i) & 1);
+        }
+      };
+
+      pushBits(0b0100, 4);
+      pushBits(utf8Bytes.length, version <= 9 ? 8 : 16);
+      for (let i = 0; i < utf8Bytes.length; i++) {
+        pushBits(utf8Bytes[i], 8);
+      }
+
+      const capBits = totalDataCw * 8;
+      const termLen = Math.min(4, capBits - bits.length);
+      pushBits(0, termLen);
+      while (bits.length % 8 !== 0) {
+        bits.push(0);
+      }
+
+      const dataBytes = new Uint8Array(totalDataCw);
+      for (let i = 0; i < bits.length / 8; i++) {
+        let byteVal = 0;
+        for (let b = 0; b < 8; b++) {
+          byteVal = (byteVal << 1) | bits[i * 8 + b];
+        }
+        dataBytes[i] = byteVal;
+      }
+
+      const padBytes = [0xEC, 0x11];
+      let padIdx = 0;
+      for (let i = bits.length / 8; i < totalDataCw; i++) {
+        dataBytes[i] = padBytes[padIdx % 2];
+        padIdx++;
+      }
+
+      // 3. 分塊並計算 Reed-Solomon 糾錯碼字
+      const blocks = [];
+      let offset = 0;
+      for (let b = 0; b < g1Blocks; b++) {
+        const slice = dataBytes.slice(offset, offset + g1Data);
+        offset += g1Data;
+        blocks.push({ data: slice, ec: rsComputeRemainder(slice, ecPerBlock) });
+      }
+      for (let b = 0; b < g2Blocks; b++) {
+        const slice = dataBytes.slice(offset, offset + g2Data);
+        offset += g2Data;
+        blocks.push({ data: slice, ec: rsComputeRemainder(slice, ecPerBlock) });
+      }
+
+      // 4. 交錯排列資料與糾錯碼字
+      const finalCodewords = [];
+      const maxDataLen = Math.max(g1Data, g2Data);
+      for (let i = 0; i < maxDataLen; i++) {
+        for (let b = 0; b < blocks.length; b++) {
+          if (i < blocks[b].data.length) {
+            finalCodewords.push(blocks[b].data[i]);
+          }
+        }
+      }
+      for (let i = 0; i < ecPerBlock; i++) {
+        for (let b = 0; b < blocks.length; b++) {
+          finalCodewords.push(blocks[b].ec[i]);
+        }
+      }
+
+      // 5. 初始化矩陣與功能圖樣（Finder, Separators, Timing, Alignment, Format/Version 保留區）
+      const size = 17 + version * 4;
+      const modules = Array.from({ length: size }, () => new Uint8Array(size));
+      const isFunc = Array.from({ length: size }, () => new Uint8Array(size));
+
+      const setFunc = (r, c, dark) => {
+        if (r >= 0 && r < size && c >= 0 && c < size) {
+          modules[r][c] = dark ? 1 : 0;
+          isFunc[r][c] = 1;
+        }
+      };
+
+      // 定位圖樣 Finder Pattern (7x7) + 白色分隔區 (1 格)
+      const placeFinder = (topR, leftC) => {
+        for (let dr = -1; dr <= 7; dr++) {
+          for (let dc = -1; dc <= 7; dc++) {
+            const r = topR + dr;
+            const c = leftC + dc;
+            if (r < 0 || r >= size || c < 0 || c >= size) continue;
+            const inOuter = dr >= 0 && dr <= 6 && dc >= 0 && dc <= 6;
+            const onBorder = dr === 0 || dr === 6 || dc === 0 || dc === 6;
+            const inCore = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+            setFunc(r, c, inOuter && (onBorder || inCore));
+          }
+        }
+      };
+      placeFinder(0, 0);
+      placeFinder(0, size - 7);
+      placeFinder(size - 7, 0);
+
+      // 校正圖樣 Alignment Pattern (5x5)
+      const coords = QR_ALIGN_COORDS[version];
+      for (let i = 0; i < coords.length; i++) {
+        for (let j = 0; j < coords.length; j++) {
+          const rCenter = coords[i];
+          const cCenter = coords[j];
+          // 避開三個角落的 Finder Pattern
+          if (
+            (rCenter === 6 && cCenter === 6) ||
+            (rCenter === 6 && cCenter === size - 7) ||
+            (rCenter === size - 7 && cCenter === 6)
+          ) {
+            continue;
+          }
+          for (let dr = -2; dr <= 2; dr++) {
+            for (let dc = -2; dc <= 2; dc++) {
+              const isDark = Math.abs(dr) === 2 || Math.abs(dc) === 2 || (dr === 0 && dc === 0);
+              setFunc(rCenter + dr, cCenter + dc, isDark);
+            }
+          }
+        }
+      }
+
+      // 時序圖樣 Timing Patterns
+      for (let i = 8; i < size - 8; i++) {
+        const dark = i % 2 === 0;
+        if (!isFunc[6][i]) setFunc(6, i, dark);
+        if (!isFunc[i][6]) setFunc(i, 6, dark);
+      }
+
+      // 保留格式資訊區與左下角固定黑點
+      for (let i = 0; i <= 8; i++) {
+        if (i !== 6) {
+          setFunc(8, i, false);
+          setFunc(i, 8, false);
+        }
+      }
+      for (let i = 0; i < 8; i++) {
+        setFunc(8, size - 1 - i, false);
+        setFunc(size - 1 - i, 8, false);
+      }
+      setFunc(size - 8, 8, true); // Dark module
+
+      // 版本資訊區（Version >= 7）
+      if (version >= 7) {
+        const verBits = QR_VERSION_INFO[version];
+        for (let i = 0; i < 18; i++) {
+          const bit = ((verBits >>> i) & 1) === 1;
+          const r = size - 11 + (i % 3);
+          const c = Math.floor(i / 3);
+          setFunc(r, c, bit);
+          setFunc(c, r, bit);
+        }
+      }
+
+      // 6. 之字形填入資料與糾錯位元
+      const allDataBits = [];
+      for (let i = 0; i < finalCodewords.length; i++) {
+        for (let b = 7; b >= 0; b--) {
+          allDataBits.push((finalCodewords[i] >>> b) & 1);
+        }
+      }
+
+      let bitPtr = 0;
+      let dirUp = true;
+      for (let rightCol = size - 1; rightCol >= 1; rightCol -= 2) {
+        if (rightCol === 6) rightCol = 5; // 跳過第 6 行垂直時序線
+        for (let step = 0; step < size; step++) {
+          const r = dirUp ? size - 1 - step : step;
+          for (let dx = 0; dx < 2; dx++) {
+            const c = rightCol - dx;
+            if (!isFunc[r][c]) {
+              modules[r][c] = bitPtr < allDataBits.length ? allDataBits[bitPtr++] : 0;
+            }
+          }
+        }
+        dirUp = !dirUp;
+      }
+
+      // 7. 套用 8 種遮罩並依 ISO/IEC 18004 四項懲罰分數選出最佳遮罩
+      const maskCondition = (maskId, r, c) => {
+        switch (maskId) {
+          case 0: return (r + c) % 2 === 0;
+          case 1: return r % 2 === 0;
+          case 2: return c % 3 === 0;
+          case 3: return (r + c) % 3 === 0;
+          case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0;
+          case 5: return ((r * c) % 2) + ((r * c) % 3) === 0;
+          case 6: return (((r * c) % 2) + ((r * c) % 3)) % 2 === 0;
+          case 7: return (((r + c) % 2) + ((r * c) % 3)) % 2 === 0;
+          default: return false;
+        }
+      };
+
+      const writeFormatBits = (grid, maskId) => {
+        const fmt = QR_FORMAT_INFO_M[maskId];
+        const topLeftCoords = [
+          [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
+          [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8]
+        ];
+        const splitCoords = [
+          [size - 1, 8], [size - 2, 8], [size - 3, 8], [size - 4, 8],
+          [size - 5, 8], [size - 6, 8], [size - 7, 8],
+          [8, size - 8], [8, size - 7], [8, size - 6], [8, size - 5],
+          [8, size - 4], [8, size - 3], [8, size - 2], [8, size - 1]
+        ];
+        for (let i = 0; i < 15; i++) {
+          const bit = (fmt >>> (14 - i)) & 1;
+          const [r1, c1] = topLeftCoords[i];
+          const [r2, c2] = splitCoords[i];
+          grid[r1][c1] = bit;
+          grid[r2][c2] = bit;
+        }
+      };
+
+      const calcPenalty = (grid) => {
+        let penalty = 0;
+        // 規則 1：同色連續 5 格以上
+        for (let r = 0; r < size; r++) {
+          let runColor = grid[r][0], runLen = 1;
+          for (let c = 1; c < size; c++) {
+            if (grid[r][c] === runColor) {
+              runLen++;
+              if (runLen === 5) penalty += 3;
+              else if (runLen > 5) penalty += 1;
+            } else {
+              runColor = grid[r][c];
+              runLen = 1;
+            }
+          }
+        }
+        for (let c = 0; c < size; c++) {
+          let runColor = grid[0][c], runLen = 1;
+          for (let r = 1; r < size; r++) {
+            if (grid[r][c] === runColor) {
+              runLen++;
+              if (runLen === 5) penalty += 3;
+              else if (runLen > 5) penalty += 1;
+            } else {
+              runColor = grid[r][c];
+              runLen = 1;
+            }
+          }
+        }
+        // 規則 2：2x2 同色方塊
+        for (let r = 0; r < size - 1; r++) {
+          for (let c = 0; c < size - 1; c++) {
+            const v = grid[r][c];
+            if (v === grid[r][c + 1] && v === grid[r + 1][c] && v === grid[r + 1][c + 1]) {
+              penalty += 3;
+            }
+          }
+        }
+        // 規則 4：深淺比例偏離 50%
+        let darkCount = 0;
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (grid[r][c]) darkCount++;
+          }
+        }
+        const pct = (darkCount * 100) / (size * size);
+        const k = Math.floor(Math.abs(pct - 50) / 5);
+        penalty += k * 10;
+        return penalty;
+      };
+
+      let bestMask = 0;
+      let lowestPenalty = Infinity;
+      let bestGrid = null;
+
+      for (let m = 0; m < 8; m++) {
+        const candidate = modules.map(row => new Uint8Array(row));
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (!isFunc[r][c] && maskCondition(m, r, c)) {
+              candidate[r][c] ^= 1;
+            }
+          }
+        }
+        writeFormatBits(candidate, m);
+        const p = calcPenalty(candidate);
+        if (p < lowestPenalty) {
+          lowestPenalty = p;
+          bestMask = m;
+          bestGrid = candidate;
+        }
+      }
+
+      return { size, matrix: bestGrid };
+    }
+
+    /* ==========================================================================
+       五、QR Code 智慧網址解析與 SVG / PNG 渲染 (QR Modal Logic)
+       ========================================================================== */
+    function isHttpWebUrl(url) {
+      if (!url || typeof url !== "string") return false;
+      const trimmed = url.trim();
+      if (!/^https?:\/\//i.test(trimmed)) return false;
+      if (/^blob:/i.test(trimmed) || /about:srcdoc/i.test(trimmed)) return false;
+      try {
+        const u = new URL(trimmed);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function normalizeUserUrl(rawInput) {
+      let val = (rawInput || "").trim();
+      if (!val) return "";
+      if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(val)) {
+        val = "https://" + val;
+      }
+      return val;
+    }
+
+    function getDefaultShareableUrl() {
+      if (appState.shareUrl && isHttpWebUrl(appState.shareUrl)) {
+        return appState.shareUrl;
+      }
+      const currentHref = window.location.href || "";
+      if (isHttpWebUrl(currentHref)) {
+        return currentHref.split("#")[0];
+      }
+      return "https://www.zoo.gov.taipei/";
+    }
+
+    function renderQrCode(targetUrl) {
+      const svgBox = document.getElementById("qrSvgContainer");
+      const urlTextEl = document.getElementById("qrEncodedUrlText");
+      const statusEl = document.getElementById("qrStatusBanner");
+
+      const cleanUrl = normalizeUserUrl(targetUrl);
+      urlTextEl.textContent = cleanUrl || "（尚未輸入網址）";
+
+      const isCurrentLocal = !isHttpWebUrl(window.location.href);
+      if (isHttpWebUrl(cleanUrl)) {
+        if (isCurrentLocal && cleanUrl === "https://www.zoo.gov.taipei/") {
+          statusEl.className = "qr-status-pill qr-status-warn";
+          statusEl.textContent = "⚠️ 目前為本機/預覽環境，預設顯示台北市立動物園官網；若要讓學生開啟本任務網頁，請在下方貼上老師部署的 https:// 網址！";
+        } else {
+          statusEl.className = "qr-status-pill qr-status-ok";
+          statusEl.textContent = "✅ 目前為標準可連線網址，手機與 iPad 相機掃描即可開啟！";
+        }
+      } else {
+        statusEl.className = "qr-status-pill qr-status-warn";
+        statusEl.textContent = "⚠️ 請輸入正確的 http:// 或 https:// 網頁網址，否則手機相機掃描將無法開啟！";
+      }
+
+      try {
+        const { size, matrix } = generateQrMatrix(cleanUrl || "https://www.zoo.gov.taipei/");
+        const quiet = 4; // ISO 標準 4 格白色靜音區
+        const totalSize = size + quiet * 2;
+        let rects = `<rect x="0" y="0" width="${totalSize}" height="${totalSize}" fill="#FFFFFF"/>`;
+        for (let r = 0; r < size; r++) {
+          for (let c = 0; c < size; c++) {
+            if (matrix[r][c] === 1) {
+              rects += `<rect x="${c + quiet}" y="${r + quiet}" width="1" height="1" fill="#000000"/>`;
+            }
+          }
+        }
+        svgBox.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalSize} ${totalSize}" shape-rendering="crispEdges">${rects}</svg>`;
+      } catch (err) {
+        svgBox.innerHTML = `<div style="padding:20px;color:#B91C1C;font-weight:800;">QR Code 產生失敗：${err.message}</div>`;
+      }
+    }
+
+    function downloadQrCodePng() {
+      const rawUrl = normalizeUserUrl(document.getElementById("qrUrlInput").value);
+      const { size, matrix } = generateQrMatrix(rawUrl || "https://www.zoo.gov.taipei/");
+      const quiet = 4;
+      const totalModules = size + quiet * 2;
+      const scale = Math.max(8, Math.floor(640 / totalModules)); // 整數像素縮放，完全無鋸齒
+      const canvasSize = totalModules * scale;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
+
+      ctx.fillStyle = "#000000";
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          if (matrix[r][c] === 1) {
+            ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+          }
+        }
+      }
+
+      const link = document.createElement("a");
+      link.download = `台北市立動物園探險任務_QRCode.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    }
+
+    /* ==========================================================================
+       六、全螢幕控制與通用彈窗控制 (Fullscreen & Modals)
+       ========================================================================== */
+    function openModal(modalId) {
+      const el = document.getElementById(modalId);
+      if (el) el.classList.add("open");
+    }
+
+    function closeModal(modalId) {
+      const el = document.getElementById(modalId);
+      if (el) el.classList.remove("open");
+    }
+
+    function updateFullscreenButtonState(isFull) {
+      const btn = document.getElementById("btnToggleFullscreen");
+      const svg = document.getElementById("fullscreenIconSvg");
+      if (!btn || !svg) return;
+      if (isFull) {
+        btn.setAttribute("data-tooltip", "退出全螢幕模式");
+        btn.setAttribute("aria-label", "退出全螢幕模式");
+        svg.innerHTML = `
+          <path d="M8 3v3a2 2 0 0 1-2 2H3"></path>
+          <path d="M21 8h-3a2 2 0 0 1-2-2V3"></path>
+          <path d="M3 16h3a2 2 0 0 1 2 2v3"></path>
+          <path d="M16 21v-3a2 2 0 0 1 2-2h3"></path>
+        `;
+      } else {
+        btn.setAttribute("data-tooltip", "切換全螢幕模式");
+        btn.setAttribute("aria-label", "切換全螢幕模式");
+        svg.innerHTML = `
+          <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+          <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+        `;
+      }
+    }
+
+    async function toggleFullscreenMode() {
+      const docEl = document.documentElement;
+      const isNativeFull = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      const isPseudoFull = document.body.classList.contains("pseudo-fullscreen");
+
+      if (isNativeFull || isPseudoFull) {
+        document.body.classList.remove("pseudo-fullscreen");
+        try {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+        } catch (e) { /* 忽略 */ }
+        updateFullscreenButtonState(false);
+      } else {
+        let nativeOk = false;
+        try {
+          if (docEl.requestFullscreen) {
+            await docEl.requestFullscreen();
+            nativeOk = true;
+          } else if (docEl.webkitRequestFullscreen) {
+            await docEl.webkitRequestFullscreen();
+            nativeOk = true;
+          }
+        } catch (e) {
+          nativeOk = false;
+        }
+        if (!nativeOk) {
+          document.body.classList.add("pseudo-fullscreen");
+        }
+        updateFullscreenButtonState(true);
+      }
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      const isFull = Boolean(document.fullscreenElement) || document.body.classList.contains("pseudo-fullscreen");
+      updateFullscreenButtonState(isFull);
+    });
+
+    /* ==========================================================================
+       七、小組 4 人座號切換與防呆交接 (4-Seat Squad Switcher & Handover)
+       ========================================================================== */
+    let toastTimeout = null;
+    function showSwitchToast(msg) {
+      const toast = document.getElementById("switchToast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function calculateStudentProgress(seat) {
+      const rec = ensureStudentRecord(seat);
+      let stars = 0;
+      ["hippo", "penguin", "pangolin"].forEach(k => {
+        if (rec.detective[k] && rec.detective[k].unlocked) stars++;
+      });
+      let missionsDone = 0;
+      if (stars === 3) missionsDone++;
+      if (rec.stopwatch && rec.stopwatch.saved) missionsDone++;
+      if (rec.toy && rec.toy.saved) missionsDone++;
+      return { stars, missionsDone, isComplete: missionsDone === 3 };
+    }
+
+    function renderSquadBar() {
+      document.getElementById("displayClassName").textContent = appState.className;
+      const wrap = document.getElementById("seatButtonsWrap");
+      wrap.innerHTML = "";
+
+      appState.squadSeats.forEach(seat => {
+        const isCurrent = seat === appState.currentSeat;
+        const prog = calculateStudentProgress(seat);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `seat-chip${isCurrent ? " active" : ""}${prog.isComplete ? " done" : ""}`;
+
+        const badgeText = prog.isComplete ? "🏆 完成" : `${prog.missionsDone}/3`;
+        btn.innerHTML = `
+          <span>${seat}</span>
+          ${isCurrent ? `<span class="seat-active-tag">👉 操作中</span>` : ""}
+          <span class="seat-progress-tag">${badgeText}</span>
+        `;
+
+        btn.addEventListener("click", () => {
+          if (seat === appState.currentSeat) return;
+          switchStudentSeat(seat);
+        });
+        wrap.appendChild(btn);
+      });
+    }
+
+    function stopActiveTimersOnSwitch() {
+      // 切換座號時安全停止計時器，避免背景計時跨人誤算
+      if (swIntervalId) {
+        clearInterval(swIntervalId);
+        swIntervalId = null;
+      }
+      swIsRunning = false;
+
+      Object.keys(detectiveIntervals).forEach(k => {
+        clearInterval(detectiveIntervals[k]);
+        delete detectiveIntervals[k];
+      });
+    }
+
+    function switchStudentSeat(newSeat) {
+      stopActiveTimersOnSwitch();
+      appState.currentSeat = newSeat;
+      ensureStudentRecord(newSeat);
+      saveState();
+      playSwitchSound();
+      renderAllViews();
+      showSwitchToast(`🔄 已切換為【${appState.className} ${newSeat}】，目前讀取你的個人紀錄！`);
+    }
+
+    function openHandoverModal(autoLockCurrent = false) {
+      if (autoLockCurrent) {
+        const rec = getCurrentRecord();
+        rec.detective.editLocked = true;
+        if (rec.stopwatch.saved) rec.stopwatch.editLocked = true;
+        if (rec.toy.saved) rec.toy.editLocked = true;
+        saveState();
+      }
+      stopActiveTimersOnSwitch();
+      document.getElementById("handoverPrevMsg").textContent =
+        `【${appState.className} ${appState.currentSeat}】的紀錄已安全保存！請交給下一位組員本人點擊座號：`;
+
+      const grid = document.getElementById("handoverSeatGrid");
+      grid.innerHTML = "";
+      appState.squadSeats.forEach(seat => {
+        const prog = calculateStudentProgress(seat);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "handover-seat-btn";
+        btn.innerHTML = `
+          <span>🙋‍♂️ 我是 ${seat}</span>
+          <span style="font-size:0.85rem;font-weight:700;">進度：${prog.isComplete ? "🏆 全部完成" : prog.missionsDone + "/3 關"}</span>
+        `;
+        btn.addEventListener("click", () => {
+          closeModal("modalHandover");
+          switchStudentSeat(seat);
+        });
+        grid.appendChild(btn);
+      });
+      openModal("modalHandover");
+    }
+
+    /* ==========================================================================
+       八、任務一：動物偵探社渲染與互動 (4-Step Anti-Peek Detective)
+       ========================================================================== */
+    const detectiveIntervals = {};
+
+    function renderDetectiveTab() {
+      const rec = getCurrentRecord().detective;
+      const lockBanner = document.getElementById("detectiveLockBanner");
+      const contentWrap = document.getElementById("detectiveContentWrap");
+
+      if (rec.editLocked) {
+        lockBanner.style.display = "flex";
+        document.getElementById("detectiveLockText").textContent =
+          `🔒 ${appState.currentSeat} 已鎖定偵探社紀錄（防止下一位組員誤改）`;
+        contentWrap.classList.add("locked-area");
+      } else {
+        lockBanner.style.display = "none";
+        contentWrap.classList.remove("locked-area");
+      }
+
+      contentWrap.innerHTML = "";
+      MYSTERY_ITEMS.forEach(item => {
+        const state = rec[item.id];
+        const card = document.createElement("div");
+        card.className = `mystery-card${state.unlocked ? " solved" : ""}`;
+
+        const statusLabel = state.unlocked
+          ? "⭐ 已破案獲得星星"
+          : state.evidence
+            ? "🔑 等待現場解鎖碼"
+            : state.observeDone
+              ? "👀 請選出眼睛看到的證據"
+              : state.guess
+                ? "⏱️ 請觀察動物 15 秒"
+                : "1️⃣ 請先鎖定直覺猜測";
+
+        let step2Html = "";
+        if (state.guess) {
+          if (state.observeDone) {
+            step2Html = `
+              <div class="step-box" style="background:#ECFDF5;border-color:#86EFAC;">
+                <div class="step-label" style="color:#15803D;">✅ 步驟 2：已完成 15 秒現場觀察！</div>
+              </div>
+            `;
+          } else {
+            step2Html = `
+              <div class="step-box">
+                <div class="step-label">⏱️ 步驟 2：現場觀察倒數計時（防止未看先猜）</div>
+                <div class="observe-timer-bar">
+                  <span style="font-weight:800;">請抬頭仔細觀察動物 15 秒：</span>
+                  <span class="observe-countdown-badge" id="obs-sec-${item.id}">${OBSERVE_SECONDS} 秒</span>
+                  <button type="button" class="btn btn-accent" id="btn-obs-${item.id}">
+                    👀 開始 15 秒觀察
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        let step3Html = "";
+        if (state.observeDone) {
+          const evBtns = item.evidences.map(ev => {
+            const sel = state.evidence === ev ? " selected" : "";
+            const dis = state.unlocked ? " disabled" : "";
+            return `<button type="button" class="choice-btn${sel}" data-ev-item="${item.id}" data-ev-val="${ev}"${dis}>${ev}</button>`;
+          }).join("");
+
+          step3Html = `
+            <div class="step-box">
+              <div class="step-label">🔍 步驟 3：回報你在現場親眼看到的證據</div>
+              <div class="choice-row">${evBtns}</div>
+            </div>
+          `;
+        }
+
+        let step4Html = "";
+        if (state.evidence && !state.unlocked) {
+          if (appState.unlockMode === "auto") {
+            step4Html = `
+              <div class="step-box">
+                <div class="step-label">🎉 步驟 4：已完成觀察，點擊揭曉真相</div>
+                <button type="button" class="btn btn-primary" data-auto-unlock="${item.id}">
+                  ✨ 立即揭曉真相
+                </button>
+              </div>
+            `;
+          } else {
+            step4Html = `
+              <div class="step-box">
+                <div class="step-label">🔑 步驟 4：請老師或小組長輸入現場解鎖碼</div>
+                <div class="pin-unlock-row">
+                  <input type="password" inputmode="numeric" maxlength="6" class="pin-input"
+                         id="pin-input-${item.id}" placeholder="解鎖碼">
+                  <button type="button" class="btn btn-primary" data-pin-unlock="${item.id}">
+                    🔓 驗證揭曉真相
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        let truthHtml = "";
+        if (state.unlocked) {
+          truthHtml = `
+            <div class="truth-reveal-box">
+              <span class="truth-badge">${item.truthBadge}</span>
+              <p style="margin: 4px 0 0; font-weight: 800; color: #064E3B;">${item.truthText}</p>
+            </div>
+          `;
+        }
+
+        const guessBtns = item.guesses.map(g => {
+          const sel = state.guess === g ? " selected" : "";
+          const dis = state.observeDone || state.unlocked ? " disabled" : "";
+          return `<button type="button" class="choice-btn${sel}" data-guess-item="${item.id}" data-guess-val="${g}"${dis}>${g}</button>`;
+        }).join("");
+
+        card.innerHTML = `
+          <div class="mystery-top">
+            <span class="mystery-animal-tag">📍 ${item.animal}</span>
+            <span class="mystery-status-pill">${statusLabel}</span>
+          </div>
+          <div class="mystery-question">${item.question}</div>
+          <div class="step-box">
+            <div class="step-label">1️⃣ 步驟 1：先憑直覺猜猜看（選定後開始觀察即鎖定）</div>
+            <div class="choice-row">${guessBtns}</div>
+          </div>
+          ${step2Html}
+          ${step3Html}
+          ${step4Html}
+          ${truthHtml}
+        `;
+        contentWrap.appendChild(card);
+      });
+
+      // 綁定偵探社事件
+      contentWrap.querySelectorAll("[data-guess-item]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const itemId = btn.getAttribute("data-guess-item");
+          const val = btn.getAttribute("data-guess-val");
+          const st = getCurrentRecord().detective[itemId];
+          if (st.observeDone || st.unlocked) return;
+          st.guess = val;
+          saveState();
+          playClickSound();
+          renderDetectiveTab();
+        });
+      });
+
+      MYSTERY_ITEMS.forEach(item => {
+        const obsBtn = document.getElementById(`btn-obs-${item.id}`);
+        if (obsBtn) {
+          obsBtn.addEventListener("click", () => {
+            if (detectiveIntervals[item.id]) return;
+            obsBtn.disabled = true;
+            obsBtn.textContent = "⏳ 專心觀察中...";
+            let remain = OBSERVE_SECONDS;
+            const secEl = document.getElementById(`obs-sec-${item.id}`);
+            playClickSound();
+
+            detectiveIntervals[item.id] = setInterval(() => {
+              remain--;
+              if (secEl) secEl.textContent = `${Math.max(0, remain)} 秒`;
+              if (remain <= 0) {
+                clearInterval(detectiveIntervals[item.id]);
+                delete detectiveIntervals[item.id];
+                const st = getCurrentRecord().detective[item.id];
+                st.observeDone = true;
+                saveState();
+                playSuccessFanfare();
+                renderDetectiveTab();
+              }
+            }, 1000);
+          });
+        }
+      });
+
+      contentWrap.querySelectorAll("[data-ev-item]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const itemId = btn.getAttribute("data-ev-item");
+          const val = btn.getAttribute("data-ev-val");
+          const st = getCurrentRecord().detective[itemId];
+          if (st.unlocked) return;
+          st.evidence = val;
+          saveState();
+          playClickSound();
+          renderDetectiveTab();
+        });
+      });
+
+      contentWrap.querySelectorAll("[data-auto-unlock]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const itemId = btn.getAttribute("data-auto-unlock");
+          const det = getCurrentRecord().detective;
+          det[itemId].unlocked = true;
+          if (MYSTERY_ITEMS.every(m => det[m.id].unlocked)) {
+            det.editLocked = true;
+          }
+          saveState();
+          playSuccessFanfare();
+          renderAllViews();
+        });
+      });
+
+      contentWrap.querySelectorAll("[data-pin-unlock]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const itemId = btn.getAttribute("data-pin-unlock");
+          const inputEl = document.getElementById(`pin-input-${itemId}`);
+          const entered = (inputEl ? inputEl.value : "").trim();
+          if (entered === appState.fieldUnlockPin) {
+            const det = getCurrentRecord().detective;
+            det[itemId].unlocked = true;
+            if (MYSTERY_ITEMS.every(m => det[m.id].unlocked)) {
+              det.editLocked = true;
+            }
+            saveState();
+            playSuccessFanfare();
+            renderAllViews();
+            showSwitchToast("🎉 破案成功！獲得 1 顆偵探星星！");
+          } else {
+            playTone(220, 0.25, "sawtooth", 0.16);
+            showSwitchToast("❌ 現場解鎖碼不正確，請再確認一次！");
+          }
+        });
+      });
+    }
+
+    /* ==========================================================================
+       九、任務二：行為碼錶手與「正」字 SVG 繪製 (3-Min Stopwatch & 6 Behaviors)
+       ========================================================================== */
+    let swIntervalId = null;
+    let swIsRunning = false;
+
+    function formatSecondsMMSS(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function renderZhengStrokes(container, count) {
+      if (!container) return;
+      if (count <= 0) {
+        container.innerHTML = `<span style="color:#94A3B8;font-size:0.84rem;font-weight:700;">尚未計次</span>`;
+        return;
+      }
+      const fullGroups = Math.floor(count / 5);
+      const remainder = count % 5;
+      const totalChars = fullGroups + (remainder > 0 ? 1 : 0);
+
+      // 台灣標準「正」字 5 筆畫路徑
+      const strokes = [
+        `<line x1="4" y1="6" x2="26" y2="6" />`,     // 第 1 筆：上橫
+        `<line x1="15" y1="6" x2="15" y2="26" />`,   // 第 2 筆：中豎
+        `<line x1="15" y1="15" x2="25" y2="15" />`,  // 第 3 筆：右短橫
+        `<line x1="7" y1="13" x2="7" y2="26" />`,    // 第 4 筆：左短豎
+        `<line x1="3" y1="26" x2="27" y2="26" />`    // 第 5 筆：底橫
+      ];
+
+      let html = "";
+      for (let g = 0; g < totalChars; g++) {
+        const sCount = g < fullGroups ? 5 : remainder;
+        html += `<svg width="28" height="28" viewBox="0 0 30 30" stroke="#B91C1C" stroke-width="3" stroke-linecap="round">${strokes.slice(0, sCount).join("")}</svg>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function renderStopwatchTab() {
+      const sw = getCurrentRecord().stopwatch;
+      const lockBanner = document.getElementById("stopwatchLockBanner");
+      const contentWrap = document.getElementById("stopwatchContentWrap");
+
+      if (sw.editLocked) {
+        lockBanner.style.display = "flex";
+        document.getElementById("stopwatchLockText").textContent =
+          `🔒 ${appState.currentSeat} 已儲存行為碼錶紀錄（點擊解鎖可重新調整）`;
+        contentWrap.classList.add("locked-area");
+      } else {
+        lockBanner.style.display = "none";
+        contentWrap.classList.remove("locked-area");
+      }
+
+      document.getElementById("swAnimalSelect").value = sw.animal || "台灣黑熊";
+      document.getElementById("swCustomAnimal").value = sw.customAnimal || "";
+      document.getElementById("swTimerDigits").textContent = formatSecondsMMSS(sw.remainingSeconds);
+
+      if (sw.remainingSeconds <= 0) {
+        document.getElementById("swTimerStatus").textContent = "⏰ 3 分鐘觀察時間到！請記得按下下方儲存紀錄";
+      } else if (swIsRunning) {
+        document.getElementById("swTimerStatus").textContent = "🟢 正在計時中... 看到動物做動作就按下方按鈕！";
+      } else {
+        document.getElementById("swTimerStatus").textContent = "按下「開始 3 分鐘計時」後，專心觀察動物動作";
+      }
+
       document.getElementById("btnSwStart").disabled = swIsRunning || sw.remainingSeconds <= 0;
       document.getElementById("btnSwPause").disabled = !swIsRunning;
 
@@ -267,22 +3123,240 @@
         document.getElementById(`pct-${k}`).textContent = `${pct}%`;
       });
     }
-// ... existing code ...
-    document.getElementById("btnSwReset").addEventListener("click", () => {
-      if (swIntervalId) {
-        clearInterval(swIntervalId);
-        swIntervalId = null;
+
+    /* ==========================================================================
+       十、任務三：保育員玩具設計師渲染 (Pure Student Free-Text Input)
+       ========================================================================== */
+    function updateToyCharCounter() {
+      const toy = getCurrentRecord().toy;
+      const len = (toy.animalZone + toy.whatText + toy.howText + toy.designText).trim().length;
+      document.getElementById("toyCharCount").textContent = len;
+    }
+
+    function renderToyTab() {
+      const toy = getCurrentRecord().toy;
+      const lockBanner = document.getElementById("toyLockBanner");
+      const contentWrap = document.getElementById("toyContentWrap");
+
+      if (toy.editLocked) {
+        lockBanner.style.display = "flex";
+        document.getElementById("toyLockText").textContent =
+          `🔒 ${appState.currentSeat} 已儲存玩具設計筆記（點擊解鎖可繼續補充）`;
+        contentWrap.classList.add("locked-area");
+      } else {
+        lockBanner.style.display = "none";
+        contentWrap.classList.remove("locked-area");
       }
-      swIsRunning = false;
-      const sw = getCurrentRecord().stopwatch;
-      sw.remainingSeconds = STOPWATCH_TOTAL_SECONDS;
-      sw.counts = { walk: 0, eat: 0, rest: 0, look: 0, groom: 0, interact: 0 };
-      saveState();
-      playClickSound();
-      renderStopwatchTab();
-    });
-// ... existing code ...
-      // 區塊二：行為碼錶手科學量化紀錄 (Y: 770 ~ 1105，完整呈現六大行為)
+
+      document.getElementById("toyAnimalZone").value = toy.animalZone || "";
+      document.getElementById("toyWhatText").value = toy.whatText || "";
+      document.getElementById("toyHowText").value = toy.howText || "";
+      document.getElementById("toyDesignText").value = toy.designText || "";
+
+      document.querySelectorAll("#bodyPartGrid .part-toggle-btn").forEach(btn => {
+        const part = btn.getAttribute("data-part");
+        if (toy.bodyParts.includes(part)) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+      updateToyCharCounter();
+    }
+
+    /* ==========================================================================
+       十一、任務四：個人探險戰報、小組總覽、直式 A4 證書與 CSV 匯出
+       ========================================================================== */
+    function renderReportTab() {
+      const seat = appState.currentSeat;
+      const rec = getCurrentRecord();
+      const prog = calculateStudentProgress(seat);
+
+      document.getElementById("reportSeatTitle").textContent = `${appState.className} ${seat}`;
+      document.getElementById("statStars").textContent = `${prog.stars} / 3 顆星`;
+      document.getElementById("statStopwatch").textContent = rec.stopwatch.saved ? "✅ 已完成統計" : "⏳ 尚未儲存";
+      document.getElementById("statToy").textContent = rec.toy.saved ? "✅ 已完成筆記" : "⏳ 尚未儲存";
+
+      let honor = "🌱 見習小探險家";
+      if (prog.missionsDone === 3) honor = "👑 台北市立動物園・特級全能保育小專家";
+      else if (prog.missionsDone === 2) honor = "🌟 資深動物觀察員";
+      else if (prog.missionsDone === 1) honor = "🧭 認證動物小偵探";
+      document.getElementById("reportHonorBadge").textContent = honor;
+
+      // 渲染本組 4 人進度對照表
+      const tbody = document.getElementById("squadOverviewTbody");
+      tbody.innerHTML = "";
+      appState.squadSeats.forEach(s => {
+        const sRec = ensureStudentRecord(s);
+        const sProg = calculateStudentProgress(s);
+        const tr = document.createElement("tr");
+        if (s === seat) tr.className = "current-seat-row";
+
+        tr.innerHTML = `
+          <td><strong>${s}</strong> ${s === seat ? "👈" : ""}</td>
+          <td>${sProg.stars} / 3 ⭐</td>
+          <td>${sRec.stopwatch.saved ? `✅ (${sRec.stopwatch.animal})` : "⬜ 未存檔"}</td>
+          <td>${sRec.toy.saved ? "✅ 已完成" : "⬜ 未存檔"}</td>
+          <td><strong>${sProg.isComplete ? "🏆 全部通關" : `${sProg.missionsDone}/3 完成`}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    /* 直式 A4 (1240 x 1754 px) 個人學習歷程證書 Canvas 繪圖工具 */
+    function drawRoundRect(ctx, x, y, w, h, r, fill, stroke, lineWidth = 2) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+      if (stroke) {
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+      }
+    }
+
+    function drawCanvasZhengTally(ctx, startX, startY, count) {
+      if (count <= 0) {
+        ctx.fillStyle = "#94A3B8";
+        ctx.font = "bold 20px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText("0 次", startX, startY + 22);
+        return;
+      }
+      const maxDraw = Math.min(count, 35); // 最多畫 7 個正字，超過附註數字
+      const fullGroups = Math.floor(maxDraw / 5);
+      const rem = maxDraw % 5;
+      const totalChars = fullGroups + (rem > 0 ? 1 : 0);
+
+      ctx.strokeStyle = "#DC2626";
+      ctx.lineWidth = 3.2;
+      ctx.lineCap = "round";
+
+      for (let g = 0; g < totalChars; g++) {
+        const sCount = g < fullGroups ? 5 : rem;
+        const ox = startX + g * 34;
+        const oy = startY;
+        ctx.beginPath();
+        if (sCount >= 1) { ctx.moveTo(ox + 3, oy + 4);  ctx.lineTo(ox + 25, oy + 4); }
+        if (sCount >= 2) { ctx.moveTo(ox + 14, oy + 4); ctx.lineTo(ox + 14, oy + 24); }
+        if (sCount >= 3) { ctx.moveTo(ox + 14, oy + 13);ctx.lineTo(ox + 24, oy + 13); }
+        if (sCount >= 4) { ctx.moveTo(ox + 6, oy + 11); ctx.lineTo(ox + 6, oy + 24); }
+        if (sCount >= 5) { ctx.moveTo(ox + 2, oy + 24); ctx.lineTo(ox + 26, oy + 24); }
+        ctx.stroke();
+      }
+    }
+
+    function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+      const chars = Array.from(text || "");
+      let line = "";
+      let lineCount = 0;
+      let curY = y;
+
+      for (let i = 0; i < chars.length; i++) {
+        const testLine = line + chars[i];
+        if (ctx.measureText(testLine).width > maxWidth && line.length > 0) {
+          lineCount++;
+          if (lineCount >= maxLines) {
+            ctx.fillText(line.slice(0, -1) + "…", x, curY);
+            return curY + lineHeight;
+          }
+          ctx.fillText(line, x, curY);
+          line = chars[i];
+          curY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      if (line) {
+        ctx.fillText(line, x, curY);
+        curY += lineHeight;
+      }
+      return curY;
+    }
+
+    function generatePortfolioCertificateDataUrl() {
+      const W = 1240;
+      const H = 1754;
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+
+      const seat = appState.currentSeat;
+      const rec = getCurrentRecord();
+      const prog = calculateStudentProgress(seat);
+      const det = rec.detective;
+      const sw = rec.stopwatch;
+      const toy = rec.toy;
+
+      // 1. 米白底色與雙層森林金外框
+      ctx.fillStyle = "#FAFBF7";
+      ctx.fillRect(0, 0, W, H);
+      drawRoundRect(ctx, 36, 36, W - 72, H - 72, 28, "#FFFFFF", "#1B5E20", 8);
+      drawRoundRect(ctx, 54, 54, W - 108, H - 108, 20, null, "#D97706", 3);
+
+      // 2. 頂部橫幅
+      drawRoundRect(ctx, 84, 82, W - 168, 175, 22, "#14532D", null);
+      ctx.fillStyle = "#FDE047";
+      ctx.font = "900 26px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("TAIPEI ZOO OUTDOOR EXPLORATION PORTFOLIO", 120, 132);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "900 46px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("🦁 台北市立動物園・個人素養探索學習歷程證書", 120, 196);
+
+      const nowStr = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit" });
+      const certNo = `TPZOO-${nowStr.replace(/\//g, "")}-${seat.replace(/\D/g, "") || "01"}`;
+      ctx.fillStyle = "#BBF7D0";
+      ctx.font = "bold 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`認證編號：${certNo}　｜　探索日期：${nowStr}`, 120, 236);
+
+      // 3. 學生身分與榮譽頭銜列 (Y: 278 ~ 388)
+      drawRoundRect(ctx, 84, 278, W - 168, 112, 18, "#FFF7ED", "#EA580C", 3);
+      ctx.fillStyle = "#9A3412";
+      ctx.font = "900 34px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`探險學員：${appState.className}　${seat}`, 116, 330);
+
+      let honorTitle = "🌱 見習小探險家";
+      if (prog.missionsDone === 3) honorTitle = "👑 特級全能保育小專家";
+      else if (prog.missionsDone === 2) honorTitle = "🌟 資深動物觀察員";
+      else if (prog.missionsDone === 1) honorTitle = "🧭 認證動物小偵探";
+
+      ctx.fillStyle = "#14532D";
+      ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`榮譽認證：${honorTitle}（完成度 ${prog.missionsDone}/3 項任務）`, 116, 372);
+
+      // 4. 區塊一：動物偵探社實證歷程 (Y: 410 ~ 750)
+      drawRoundRect(ctx, 84, 410, W - 168, 340, 18, "#FFFFFF", "#15803D", 3);
+      ctx.fillStyle = "#14532D";
+      ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`🔍 學習歷程一：動物偵探社・現場實證破案（獲得 ${prog.stars} / 3 顆星）`, 112, 456);
+
+      let dy = 498;
+      MYSTERY_ITEMS.forEach((item, idx) => {
+        const st = det[item.id];
+        const statusIcon = st.unlocked ? "⭐ 已破案" : "⬜ 未完成";
+        ctx.fillStyle = "#0F172A";
+        ctx.font = "900 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText(`${idx + 1}. ${item.animal}（${statusIcon}）`, 112, dy);
+
+        ctx.fillStyle = "#334155";
+        ctx.font = "bold 20px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        const gTxt = st.guess ? st.guess : "尚未猜測";
+        const eTxt = st.evidence ? st.evidence : "尚未回報證據";
+        ctx.fillText(`   • 直覺猜測：${gTxt}`, 112, dy + 28);
+        drawWrappedText(ctx, `   • 現場證據：${eTxt}`, 112, dy + 55, W - 224, 24, 1);
+        dy += 86;
+      });
+
+      // 5. 區塊二：行為碼錶手科學量化紀錄 (Y: 770 ~ 1105，完整呈現六大行為)
       drawRoundRect(ctx, 84, 770, W - 168, 335, 18, "#FFFFFF", "#0284C7", 3);
       ctx.fillStyle = "#0369A1";
       ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
@@ -309,7 +3383,6 @@
 
         drawCanvasZhengTally(ctx, 290, by - 2, cnt);
 
-        // 右側迷你比例橫條
         const barX = 560;
         const barW = 460;
         drawRoundRect(ctx, barX, by + 3, barW, 20, 10, "#E2E8F0", null);
@@ -322,7 +3395,7 @@
         by += 43;
       });
 
-      // 區塊三：保育員玩具設計師原創筆記 (Y: 1122 ~ 1497)
+      // 6. 區塊三：保育員玩具設計師原創筆記 (Y: 1122 ~ 1497)
       drawRoundRect(ctx, 84, 1122, W - 168, 375, 18, "#FFFFFF", "#7C3AED", 3);
       ctx.fillStyle = "#5B21B6";
       ctx.font = "900 28px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
@@ -344,7 +3417,27 @@
       ny = drawWrappedText(ctx, `2. 動物怎麼玩玩具：${toy.howText || "（尚未輸入）"}`, 112, ny, W - 224, 29, 3);
       ny += 6;
       drawWrappedText(ctx, `3. 我的新玩具設計：${toy.designText || "（尚未輸入）"}`, 112, ny, W - 224, 29, 3);
-// ... existing code ...
+
+      // 7. 底部十二年國教核心素養評量與師長簽章欄 (Y: 1515 ~ 1682)
+      drawRoundRect(ctx, 84, 1515, W - 168, 168, 18, "#F8FAFC", "#94A3B8", 2.5);
+      ctx.fillStyle = "#0F172A";
+      ctx.font = "900 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("🌟 十二年國教自然與生活科技核心素養表現：", 112, 1555);
+
+      const s1 = prog.stars > 0 ? "★★★" : "☆☆☆";
+      const s2 = sw.saved ? "★★★" : "☆☆☆";
+      const s3 = toy.saved ? "★★★" : "☆☆☆";
+      ctx.fillStyle = "#334155";
+      ctx.font = "bold 21px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`• 實證觀察與迷思辨析：${s1}　　• 科學量化與數據統計：${s2}　　• 動物福祉與創意思考：${s3}`, 112, 1595);
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "bold 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("帶隊老師簽章：____________________　　　　家長鼓勵簽章：____________________", 112, 1652);
+
+      return canvas.toDataURL("image/png");
+    }
+
     function exportAllRecordsToCsv() {
       const headers = [
         "班級", "座號",
@@ -352,11 +3445,27 @@
         "行為碼錶動物", "走來走去次數", "低頭吃東西次數", "趴著休息次數", "東張西望次數", "抓癢理毛次數", "互動玩耍次數", "行為碼錶是否存檔",
         "玩具觀察動物與展區", "碰玩具部位", "玩具外觀筆記", "動物玩法筆記", "新玩具設計筆記", "玩具筆記是否存檔"
       ];
-// ... existing code ...
+
+      const escapeCsv = (val) => {
+        const str = String(val == null ? "" : val).replace(/\r?\n/g, " ");
+        return `"${str.replace(/"/g, '""')}"`;
+      };
+
+      const allSeats = Array.from(new Set([...appState.squadSeats, ...Object.keys(appState.records)]));
+      const rows = [headers.map(escapeCsv).join(",")];
+
+      allSeats.forEach(seat => {
+        const rec = ensureStudentRecord(seat);
+        const prog = calculateStudentProgress(seat);
+        const d = rec.detective;
+        const sw = rec.stopwatch;
+        const toy = rec.toy;
+        const animalLabel = sw.customAnimal ? `${sw.animal}(${sw.customAnimal})` : sw.animal;
+
         const row = [
           appState.className,
           seat,
-          `${stats.stars}/3`,
+          `${prog.stars}/3`,
           d.hippo.guess,
           d.hippo.evidence,
           d.penguin.guess,
@@ -379,4 +3488,455 @@
           toy.saved ? "是" : "否"
         ];
         rows.push(row.map(escapeCsv).join(","));
-// ... existing code ...
+      });
+
+      // 加入 UTF-8 BOM (\uFEFF) 防止 Excel 開啟中文亂碼
+      const csvContent = "\uFEFF" + rows.join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `台北市立動物園探險紀錄_${appState.className}.csv`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /* ==========================================================================
+       十二、整體介面刷新與事件綁定 (Render All & Event Listeners)
+       ========================================================================== */
+    function renderAllViews() {
+      renderSquadBar();
+      renderDetectiveTab();
+      renderStopwatchTab();
+      renderToyTab();
+      renderReportTab();
+    }
+
+    function applyFontSize(size) {
+      appState.fontSize = size;
+      document.documentElement.setAttribute("data-font", size);
+      document.querySelectorAll(".font-btn").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-font-size") === size);
+      });
+      saveState();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      applyFontSize(appState.fontSize || "large");
+      renderAllViews();
+
+      // 1. 三段字體縮放
+      document.querySelectorAll(".font-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          playClickSound();
+          applyFontSize(btn.getAttribute("data-font-size"));
+        });
+      });
+
+      // 2. 右上方 4 顆純圖示功能鍵
+      document.getElementById("btnOpenQr").addEventListener("click", () => {
+        playClickSound();
+        const urlInput = document.getElementById("qrUrlInput");
+        const initUrl = getDefaultShareableUrl();
+        urlInput.value = initUrl;
+        renderQrCode(initUrl);
+        openModal("modalQr");
+      });
+
+      document.getElementById("btnUpdateQrUrl").addEventListener("click", () => {
+        playClickSound();
+        const urlInput = document.getElementById("qrUrlInput");
+        const normalized = normalizeUserUrl(urlInput.value);
+        urlInput.value = normalized;
+        if (isHttpWebUrl(normalized)) {
+          appState.shareUrl = normalized;
+          saveState();
+        }
+        renderQrCode(normalized);
+        showSwitchToast("✅ 已更新 QR Code 連結！");
+      });
+
+      document.getElementById("btnCopyQrUrl").addEventListener("click", () => {
+        const urlInput = document.getElementById("qrUrlInput");
+        urlInput.select();
+        urlInput.setSelectionRange(0, 9999);
+        try {
+          document.execCommand("copy");
+          playSuccessFanfare();
+          showSwitchToast("📋 已複製網址到剪貼簿！");
+        } catch (e) {
+          showSwitchToast("⚠️ 請長按網址列手動複製");
+        }
+      });
+
+      document.getElementById("btnTestOpenQrUrl").addEventListener("click", () => {
+        const normalized = normalizeUserUrl(document.getElementById("qrUrlInput").value);
+        if (!isHttpWebUrl(normalized)) {
+          showSwitchToast("⚠️ 請先輸入有效的 http:// 或 https:// 網頁網址");
+          return;
+        }
+        window.open(normalized, "_blank", "noopener,noreferrer");
+      });
+
+      document.getElementById("btnDownloadQrPng").addEventListener("click", () => {
+        playSuccessFanfare();
+        downloadQrCodePng();
+      });
+
+      document.getElementById("btnToggleFullscreen").addEventListener("click", () => {
+        playClickSound();
+        toggleFullscreenMode();
+      });
+
+      document.getElementById("btnOpenGuide").addEventListener("click", () => {
+        playClickSound();
+        openModal("modalGuide");
+      });
+
+      document.getElementById("btnOpenTeacher").addEventListener("click", () => {
+        playClickSound();
+        document.getElementById("teacherPwdInput").value = "";
+        document.getElementById("teacherLoginError").style.display = "none";
+        document.getElementById("teacherLoginBox").style.display = "block";
+        document.getElementById("teacherAdminPanel").style.display = "none";
+        openModal("modalTeacher");
+      });
+
+      // 3. 通用彈窗關閉（✕ 按鈕與點擊背景）
+      document.querySelectorAll("[data-close-modal]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          playClickSound();
+          closeModal(btn.getAttribute("data-close-modal"));
+        });
+      });
+
+      document.querySelectorAll(".modal-backdrop").forEach(backdrop => {
+        backdrop.addEventListener("click", (e) => {
+          if (e.target === backdrop) {
+            closeModal(backdrop.id);
+          }
+        });
+      });
+
+      // 4. 小組 4 人名單設定與交接彈窗
+      document.getElementById("btnEditSquad").addEventListener("click", () => {
+        playClickSound();
+        document.getElementById("inputClassName").value = appState.className;
+        document.getElementById("inputSeat1").value = appState.squadSeats[0] || "1號";
+        document.getElementById("inputSeat2").value = appState.squadSeats[1] || "2號";
+        document.getElementById("inputSeat3").value = appState.squadSeats[2] || "3號";
+        document.getElementById("inputSeat4").value = appState.squadSeats[3] || "4號";
+        openModal("modalSquad");
+      });
+
+      document.getElementById("btnSaveSquad").addEventListener("click", () => {
+        const cls = document.getElementById("inputClassName").value.trim() || "5年13班";
+        const s1 = document.getElementById("inputSeat1").value.trim() || "1號";
+        const s2 = document.getElementById("inputSeat2").value.trim() || "2號";
+        const s3 = document.getElementById("inputSeat3").value.trim() || "3號";
+        const s4 = document.getElementById("inputSeat4").value.trim() || "4號";
+        const newSeats = [s1, s2, s3, s4];
+        if (new Set(newSeats).size < 4) {
+          showSwitchToast("⚠️ 4 位組員的座號不能重複喔！");
+          return;
+        }
+        appState.className = cls;
+        appState.squadSeats = newSeats;
+        if (!newSeats.includes(appState.currentSeat)) {
+          appState.currentSeat = newSeats[0];
+        }
+        newSeats.forEach(s => ensureStudentRecord(s));
+        saveState();
+        closeModal("modalSquad");
+        playSuccessFanfare();
+        renderAllViews();
+        showSwitchToast("✅ 已更新本組 4 人座號！");
+      });
+
+      document.getElementById("btnOpenHandover").addEventListener("click", () => {
+        playClickSound();
+        openHandoverModal(true);
+      });
+
+      // 5. 四大分頁切換
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          playClickSound();
+          const target = btn.getAttribute("data-tab");
+          document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+          document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+          btn.classList.add("active");
+          document.getElementById(`panel-${target}`).classList.add("active");
+          if (target === "report") renderReportTab();
+        });
+      });
+
+      // 6. 防誤改保護鎖解鎖按鈕
+      document.getElementById("btnUnlockDetective").addEventListener("click", () => {
+        getCurrentRecord().detective.editLocked = false;
+        saveState();
+        playClickSound();
+        renderDetectiveTab();
+      });
+
+      document.getElementById("btnUnlockStopwatch").addEventListener("click", () => {
+        getCurrentRecord().stopwatch.editLocked = false;
+        saveState();
+        playClickSound();
+        renderStopwatchTab();
+      });
+
+      document.getElementById("btnUnlockToy").addEventListener("click", () => {
+        getCurrentRecord().toy.editLocked = false;
+        saveState();
+        playClickSound();
+        renderToyTab();
+      });
+
+      // 7. 行為碼錶手互動事件
+      document.getElementById("swAnimalSelect").addEventListener("change", (e) => {
+        getCurrentRecord().stopwatch.animal = e.target.value;
+        saveState();
+      });
+
+      document.getElementById("swCustomAnimal").addEventListener("input", (e) => {
+        getCurrentRecord().stopwatch.customAnimal = e.target.value;
+        saveState();
+      });
+
+      document.getElementById("btnSwStart").addEventListener("click", () => {
+        if (swIsRunning) return;
+        const sw = getCurrentRecord().stopwatch;
+        if (sw.remainingSeconds <= 0) return;
+
+        swIsRunning = true;
+        playClickSound();
+        renderStopwatchTab();
+
+        swIntervalId = setInterval(() => {
+          const curSw = getCurrentRecord().stopwatch;
+          if (curSw.remainingSeconds > 0) {
+            curSw.remainingSeconds--;
+            saveState();
+            renderStopwatchTab();
+          }
+          if (curSw.remainingSeconds <= 0) {
+            clearInterval(swIntervalId);
+            swIntervalId = null;
+            swIsRunning = false;
+            saveState();
+            playSuccessFanfare();
+            renderStopwatchTab();
+            showSwitchToast("⏰ 3 分鐘計時完成！請按下儲存按鈕保留數據");
+          }
+        }, 1000);
+      });
+
+      document.getElementById("btnSwPause").addEventListener("click", () => {
+        if (swIntervalId) {
+          clearInterval(swIntervalId);
+          swIntervalId = null;
+        }
+        swIsRunning = false;
+        playClickSound();
+        renderStopwatchTab();
+      });
+
+      document.getElementById("btnSwReset").addEventListener("click", () => {
+        if (swIntervalId) {
+          clearInterval(swIntervalId);
+          swIntervalId = null;
+        }
+        swIsRunning = false;
+        const sw = getCurrentRecord().stopwatch;
+        sw.remainingSeconds = STOPWATCH_TOTAL_SECONDS;
+        sw.counts = { walk: 0, eat: 0, rest: 0, look: 0, groom: 0, interact: 0 };
+        saveState();
+        playClickSound();
+        renderStopwatchTab();
+      });
+
+      document.querySelectorAll("[data-beh]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const k = btn.getAttribute("data-beh");
+          const sw = getCurrentRecord().stopwatch;
+          sw.counts[k] = (sw.counts[k] || 0) + 1;
+          saveState();
+          playClickSound();
+          renderStopwatchTab();
+        });
+      });
+
+      document.querySelectorAll("[data-minus]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const k = btn.getAttribute("data-minus");
+          const sw = getCurrentRecord().stopwatch;
+          if ((sw.counts[k] || 0) > 0) {
+            sw.counts[k]--;
+            saveState();
+            playTone(360, 0.08, "sine", 0.1);
+            renderStopwatchTab();
+          }
+        });
+      });
+
+      document.getElementById("btnSaveStopwatch").addEventListener("click", () => {
+        if (swIntervalId) {
+          clearInterval(swIntervalId);
+          swIntervalId = null;
+        }
+        swIsRunning = false;
+        const sw = getCurrentRecord().stopwatch;
+        sw.saved = true;
+        sw.editLocked = true;
+        saveState();
+        playSuccessFanfare();
+        renderAllViews();
+        showSwitchToast(`💾 已儲存 ${appState.currentSeat} 的行為統計紀錄！`);
+      });
+
+      document.getElementById("btnHandoverFromSw").addEventListener("click", () => {
+        const sw = getCurrentRecord().stopwatch;
+        sw.saved = true;
+        saveState();
+        playSuccessFanfare();
+        renderAllViews();
+        openHandoverModal(true);
+      });
+
+      // 8. 玩具設計師互動事件
+      document.querySelectorAll("#bodyPartGrid .part-toggle-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const part = btn.getAttribute("data-part");
+          const toy = getCurrentRecord().toy;
+          const idx = toy.bodyParts.indexOf(part);
+          if (idx >= 0) toy.bodyParts.splice(idx, 1);
+          else toy.bodyParts.push(part);
+          saveState();
+          playClickSound();
+          renderToyTab();
+        });
+      });
+
+      ["toyAnimalZone", "toyWhatText", "toyHowText", "toyDesignText"].forEach(id => {
+        document.getElementById(id).addEventListener("input", (e) => {
+          const toy = getCurrentRecord().toy;
+          if (id === "toyAnimalZone") toy.animalZone = e.target.value;
+          if (id === "toyWhatText")   toy.whatText = e.target.value;
+          if (id === "toyHowText")    toy.howText = e.target.value;
+          if (id === "toyDesignText") toy.designText = e.target.value;
+          saveState();
+          updateToyCharCounter();
+        });
+      });
+
+      document.getElementById("btnSaveToy").addEventListener("click", () => {
+        const toy = getCurrentRecord().toy;
+        toy.saved = true;
+        toy.editLocked = true;
+        saveState();
+        playSuccessFanfare();
+        renderAllViews();
+        showSwitchToast(`💾 已儲存 ${appState.currentSeat} 的玩具設計筆記！`);
+      });
+
+      document.getElementById("btnHandoverFromToy").addEventListener("click", () => {
+        const toy = getCurrentRecord().toy;
+        toy.saved = true;
+        saveState();
+        playSuccessFanfare();
+        renderAllViews();
+        openHandoverModal(true);
+      });
+
+      // 9. 探險戰報：直式 A4 學習歷程證書與 CSV 匯出
+      let latestCertDataUrl = "";
+      document.getElementById("btnGenerateCert").addEventListener("click", () => {
+        playSuccessFanfare();
+        latestCertDataUrl = generatePortfolioCertificateDataUrl();
+        document.getElementById("certPreviewImg").src = latestCertDataUrl;
+        openModal("modalCert");
+      });
+
+      document.getElementById("btnDownloadCertPng").addEventListener("click", () => {
+        if (!latestCertDataUrl) latestCertDataUrl = generatePortfolioCertificateDataUrl();
+        const link = document.createElement("a");
+        link.download = `動物園學習歷程證書_${appState.className}_${appState.currentSeat}.png`;
+        link.href = latestCertDataUrl;
+        link.click();
+      });
+
+      document.getElementById("btnExportCsv").addEventListener("click", () => {
+        playSuccessFanfare();
+        exportAllRecordsToCsv();
+        showSwitchToast("📊 已匯出全機探險紀錄 CSV 檔案！");
+      });
+
+      document.getElementById("btnHandoverFromReport").addEventListener("click", () => {
+        playClickSound();
+        openHandoverModal(true);
+      });
+
+      // 10. 教師現場管理中心（密碼：20270118，不顯示密碼提示）
+      document.getElementById("btnTeacherLogin").addEventListener("click", () => {
+        const val = document.getElementById("teacherPwdInput").value.trim();
+        if (val === TEACHER_MASTER_PWD) {
+          document.getElementById("teacherLoginBox").style.display = "none";
+          document.getElementById("teacherAdminPanel").style.display = "block";
+          document.getElementById("teacherFieldPinInput").value = appState.fieldUnlockPin;
+          document.getElementById("teacherModeSelect").value = appState.unlockMode;
+          playSuccessFanfare();
+        } else {
+          document.getElementById("teacherLoginError").style.display = "block";
+          playTone(220, 0.25, "sawtooth", 0.16);
+        }
+      });
+
+      document.getElementById("btnSaveFieldPin").addEventListener("click", () => {
+        const newPin = document.getElementById("teacherFieldPinInput").value.trim();
+        if (!newPin) return;
+        appState.fieldUnlockPin = newPin;
+        saveState();
+        playSuccessFanfare();
+        showSwitchToast("✅ 已更新現場解鎖碼！");
+      });
+
+      document.getElementById("teacherModeSelect").addEventListener("change", (e) => {
+        appState.unlockMode = e.target.value;
+        saveState();
+        renderDetectiveTab();
+        showSwitchToast("✅ 已切換偵探社揭曉模式！");
+      });
+
+      document.getElementById("btnTeacherUnlockCurrent").addEventListener("click", () => {
+        const det = getCurrentRecord().detective;
+        MYSTERY_ITEMS.forEach(m => {
+          if (!det[m.id].guess) det[m.id].guess = m.guesses[0];
+          det[m.id].observeDone = true;
+          if (!det[m.id].evidence) det[m.id].evidence = m.evidences[0];
+          det[m.id].unlocked = true;
+        });
+        saveState();
+        renderAllViews();
+        playSuccessFanfare();
+        showSwitchToast(`🔓 已為 ${appState.currentSeat} 解鎖全部偵探題！`);
+      });
+
+      document.getElementById("btnTeacherExportCsv").addEventListener("click", () => {
+        exportAllRecordsToCsv();
+        playSuccessFanfare();
+      });
+
+      document.getElementById("btnTeacherClearAll").addEventListener("click", () => {
+        appState.records = {};
+        appState.squadSeats.forEach(s => ensureStudentRecord(s));
+        saveState();
+        renderAllViews();
+        closeModal("modalTeacher");
+        showSwitchToast("🗑️ 已清除本機所有探險紀錄！");
+      });
+    });
+  </script>
+</body>
+</html>
