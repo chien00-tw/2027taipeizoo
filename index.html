@@ -1,0 +1,3650 @@
+<!DOCTYPE html>
+<!--
+  ==========================================================================
+  專案名稱：🦁 台北市立動物園探險任務 (Taipei Zoo Explorer Mission Hub)
+  版本序號：v1.4
+  適用對象：國小五年級學生（4 人一組共用 1 台 iPad 或多裝置離線探索專用）
+  核心規格：
+    1. 100% 單一離線檔案（Single-file HTML/CSS/JS），零外部 CDN 或網路依賴
+    2. 全站響應式設計（RWD）：支援手機（360px 起）、iPad、Chromebook、筆電與大螢幕
+    3. 右上方 4 顆純圖示功能鍵（嚴格無文字標籤，具備高對比 Hover Tooltip）：
+       - QR Code 掃碼連結鍵（內建純 JS 離線 ISO/IEC 18004 QR Code 產生器）
+       - 全螢幕功能鍵（Fullscreen API + iPad Safari Pseudo-Fullscreen 雙機制）
+       - 操作指引功能鍵（五年級白話版圖文小幫手彈窗）
+       - 教師設定功能鍵（密碼 2026、自訂解鎖碼、嚴格/自主模式、一鍵解鎖、資料清理）
+    4. 小組 4 人共用一台 iPad 防呆交接系統（快捷切換列 + 全螢幕交接遮罩 + 防誤改保護鎖）
+    5. 四大任務分頁：
+       - 動物偵探社（四階段防偷看觀察與現場解鎖流程）
+       - 行為碼錶手（僅保留真實 3 分鐘計時，無任何快速體驗按鈕，搭配正字筆順 SVG）
+       - 玩具設計師（完全由學生自行輸入觀察筆記，無任何短語標籤拼貼按鈕）
+       - 探險戰報 & 小組總覽（小組對照表、PNG 結業證書與 UTF-8 BOM Excel CSV 匯出）
+  ==========================================================================
+-->
+<html lang="zh-Hant-TW" data-font="large">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>🦁 台北市立動物園探險任務 v1.4</title>
+  <style>
+    /* ==========================================================================
+       1. 響應式戶外高對比色彩系統與三段字體縮放 (RWD + High Contrast)
+       ========================================================================== */
+    :root {
+      --font-scale: 1; /* 標準: 0.88 | 大字: 1 | 特大: 1.15 */
+      --base-font-size: calc(clamp(16px, 1.3vw + 12px, 19px) * var(--font-scale));
+
+      /* 戶外防眩光高對比色票 */
+      --bg-page: #FFFDF7;
+      --bg-card: #FFFFFF;
+      --bg-subcard: #F5F2E8;
+      --border-color: #CBD5E1;
+
+      --text-main: #1E293B;
+      --text-muted: #475569;
+
+      --forest-green: #15803D;
+      --forest-dark: #14532D;
+      --forest-light: #DCFCE7;
+
+      --orange-main: #EA580C;
+      --orange-dark: #C2410C;
+      --orange-light: #FFEDD5;
+
+      --sky-blue: #0284C7;
+      --sky-dark: #0369A1;
+      --sky-light: #E0F2FE;
+
+      --amber-warn: #F59E0B;
+      --amber-dark: #B45309;
+      --amber-light: #FEF3C7;
+
+      --purple-main: #7C3AED;
+      --purple-light: #EDE9FE;
+
+      --red-main: #DC2626;
+      --red-light: #FEE2E2;
+
+      --shadow-sm: 0 2px 6px rgba(30, 41, 59, 0.08);
+      --shadow-md: 0 6px 18px rgba(30, 41, 59, 0.14);
+      --radius-lg: clamp(14px, 2vw, 20px);
+      --radius-md: clamp(10px, 1.5vw, 14px);
+      --radius-sm: 10px;
+    }
+
+    html[data-font="standard"] { --font-scale: 0.88; }
+    html[data-font="large"]    { --font-scale: 1; }
+    html[data-font="xlarge"]   { --font-scale: 1.15; }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      font-size: var(--base-font-size);
+      font-family: "PingFang TC", "Microsoft JhengHei", "Heiti TC", "Noto Sans TC", sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.55;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background-color: var(--bg-page);
+      overflow-x: hidden;
+      width: 100%;
+    }
+
+    /* Pseudo-Fullscreen 滿版備援模式（相容 iPad Safari 與內嵌預覽視窗） */
+    body.pseudo-fullscreen {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 8000;
+      overflow-y: auto;
+      background-color: var(--bg-page);
+    }
+
+    /* 所有互動元件確保 >= 48px 觸控熱區，避免誤觸 */
+    button, select, input[type="text"], input[type="password"], input[type="url"], textarea {
+      font-family: inherit;
+      font-size: 1rem;
+      min-height: 48px;
+      touch-action: manipulation;
+    }
+
+    button, select {
+      cursor: pointer;
+    }
+
+    button {
+      border: none;
+      border-radius: var(--radius-md);
+      font-weight: 800;
+      transition: transform 0.1s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45em;
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.65;
+    }
+
+    /* ==========================================================================
+       2. 頂部標題列 + 右上方 4 顆純圖示功能鍵（嚴格無文字標籤 + Hover Tooltip）
+       ========================================================================== */
+    .top-header {
+      position: sticky;
+      top: 0;
+      z-index: 300;
+      background-color: var(--forest-dark);
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+      border-bottom: 4px solid var(--orange-main);
+      width: 100%;
+    }
+
+    .top-bar-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: clamp(8px, 1.2vw, 12px) clamp(12px, 2vw, 20px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .brand-title {
+      font-size: clamp(1rem, 2.2vw, 1.3rem);
+      font-weight: 900;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      line-height: 1.25;
+      letter-spacing: 0.02em;
+    }
+
+    .version-badge {
+      background-color: var(--orange-main);
+      color: #FFFFFF;
+      font-size: 0.74rem;
+      font-weight: 900;
+      padding: 2px 9px;
+      border-radius: 999px;
+      border: 1.5px solid #FFFFFF;
+      flex-shrink: 0;
+      letter-spacing: 0.03em;
+    }
+
+    /* 右上方 4 顆純圖示功能鍵容器 */
+    .top-icon-actions {
+      display: flex;
+      align-items: center;
+      gap: clamp(6px, 1vw, 10px);
+      flex-shrink: 0;
+    }
+
+    .icon-only-btn {
+      position: relative;
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      padding: 0;
+      border-radius: 14px;
+      background-color: rgba(255, 255, 255, 0.14);
+      color: #FFFFFF;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .icon-only-btn:hover,
+    .icon-only-btn:focus-visible {
+      background-color: var(--orange-main);
+      border-color: #FFFFFF;
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .icon-only-btn svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    /* 高對比懸停與聚焦提示氣泡（Hover / Focus-Visible Tooltip） */
+    .icon-only-btn::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      background-color: #0F172A;
+      color: #FFFFFF;
+      font-size: 0.84rem;
+      font-weight: 800;
+      padding: 6px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      border: 2px solid var(--orange-main);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.38);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+      pointer-events: none;
+      z-index: 600;
+    }
+
+    .icon-only-btn::before {
+      content: "";
+      position: absolute;
+      top: calc(100% + 1px);
+      right: 17px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: transparent transparent var(--orange-main) transparent;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s;
+      pointer-events: none;
+      z-index: 601;
+    }
+
+    .icon-only-btn:hover::after,
+    .icon-only-btn:focus-visible::after {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .icon-only-btn:hover::before,
+    .icon-only-btn:focus-visible::before {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* ==========================================================================
+       3. 身分切換即時提示橫幅 (Toast Banner)
+       ========================================================================== */
+    .switch-toast {
+      position: fixed;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background-color: var(--orange-main);
+      color: #FFFFFF;
+      border: 3px solid #FFFFFF;
+      border-radius: 999px;
+      padding: 10px 24px;
+      font-size: 1.05rem;
+      font-weight: 900;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      z-index: 950;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+      white-space: nowrap;
+      max-width: 92vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+
+    .switch-toast.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ==========================================================================
+       4. 主容器與小組 4 人快捷切換控制列 (Group 4-Student Switcher Bar)
+       ========================================================================== */
+    .main-wrapper {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: clamp(10px, 2vw, 18px);
+      width: 100%;
+    }
+
+    .group-bar-card {
+      background-color: var(--bg-card);
+      border: 2.5px solid var(--forest-green);
+      border-radius: var(--radius-lg);
+      padding: clamp(12px, 2vw, 18px);
+      margin-bottom: clamp(12px, 2vw, 18px);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .group-bar-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 2px dashed var(--border-color);
+    }
+
+    .class-info-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .class-pill {
+      background-color: var(--forest-light);
+      color: var(--forest-dark);
+      border: 2px solid var(--forest-green);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-weight: 900;
+      font-size: 0.98rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .edit-group-btn {
+      background-color: var(--bg-subcard);
+      color: var(--text-main);
+      border: 2px solid var(--border-color);
+      padding: 6px 14px;
+      font-size: 0.9rem;
+      border-radius: 999px;
+    }
+
+    .edit-group-btn:hover {
+      background-color: var(--amber-light);
+      border-color: var(--amber-warn);
+    }
+
+    .group-controls-right {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* 三段字體縮放切換器 */
+    .font-switcher {
+      display: inline-flex;
+      background-color: var(--bg-subcard);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .font-btn {
+      min-height: 40px;
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      background: transparent;
+      color: var(--text-muted);
+      border-radius: 9px;
+    }
+
+    .font-btn.active {
+      background-color: var(--forest-dark);
+      color: #FFFFFF;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .handover-trigger-btn {
+      background-color: var(--orange-main);
+      color: #FFFFFF;
+      padding: 8px 16px;
+      font-size: 0.95rem;
+      box-shadow: 0 3px 0 var(--orange-dark);
+    }
+
+    .handover-trigger-btn:hover {
+      background-color: var(--orange-dark);
+    }
+
+    /* 小組 4 顆大尺寸座號卡片網格 */
+    .seat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(8px, 1.5vw, 14px);
+    }
+
+    @media (max-width: 767px) {
+      .seat-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .seat-card-btn {
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: space-between;
+      text-align: left;
+      padding: clamp(10px, 1.5vw, 14px);
+      background-color: var(--bg-subcard);
+      border: 2.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      min-height: 82px;
+      position: relative;
+    }
+
+    .seat-card-btn:hover:not(.active) {
+      border-color: var(--forest-green);
+      background-color: #FFFFFF;
+    }
+
+    .seat-card-btn.active {
+      background-color: var(--orange-light);
+      border-color: var(--orange-main);
+      box-shadow: 0 4px 12px rgba(234, 88, 12, 0.22);
+    }
+
+    .seat-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .seat-number-text {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: var(--text-main);
+    }
+
+    .seat-card-btn.active .seat-number-text {
+      color: var(--orange-dark);
+    }
+
+    .seat-progress-badge {
+      font-size: 0.8rem;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background-color: #FFFFFF;
+      border: 1.5px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .seat-progress-badge.done {
+      background-color: var(--forest-green);
+      border-color: var(--forest-dark);
+      color: #FFFFFF;
+    }
+
+    .seat-status-line {
+      font-size: 0.82rem;
+      font-weight: 800;
+      margin-top: 6px;
+      color: var(--text-muted);
+    }
+
+    .seat-card-btn.active .seat-status-line {
+      color: var(--orange-dark);
+    }
+
+    /* ==========================================================================
+       5. 四大互動任務分頁導覽列 (Navigation Tabs)
+       ========================================================================== */
+    .tab-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: clamp(6px, 1.2vw, 12px);
+      margin-bottom: clamp(14px, 2vw, 20px);
+    }
+
+    @media (max-width: 767px) {
+      .tab-nav {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .tab-btn {
+      background-color: var(--bg-card);
+      color: var(--text-main);
+      border: 2.5px solid var(--border-color);
+      padding: 12px 10px;
+      font-size: 0.98rem;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      text-align: center;
+    }
+
+    .tab-btn:hover:not(.active) {
+      border-color: var(--forest-green);
+      background-color: var(--forest-light);
+    }
+
+    .tab-btn.active {
+      background-color: var(--forest-green);
+      color: #FFFFFF;
+      border-color: var(--forest-dark);
+      box-shadow: 0 4px 12px rgba(21, 128, 61, 0.25);
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       6. 通用任務卡片與「已完成防誤改保護鎖」
+       ========================================================================== */
+    .section-banner {
+      background-color: var(--sky-light);
+      border: 2px solid var(--sky-blue);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .section-banner h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--sky-dark);
+    }
+
+    .section-banner p {
+      margin: 4px 0 0;
+      font-size: 0.92rem;
+      color: var(--text-main);
+    }
+
+    .mission-card {
+      background-color: var(--bg-card);
+      border: 2.5px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: clamp(14px, 2.2vw, 22px);
+      margin-bottom: 18px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+
+    .mission-card.completed-card {
+      border-color: var(--forest-green);
+    }
+
+    /* 已完成關卡防誤改保護鎖橫幅 */
+    .anti-edit-lock-bar {
+      background-color: var(--amber-light);
+      border: 2px solid var(--amber-warn);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 800;
+      color: var(--amber-dark);
+    }
+
+    .unlock-edit-btn {
+      background-color: #FFFFFF;
+      color: var(--amber-dark);
+      border: 2px solid var(--amber-warn);
+      padding: 6px 12px;
+      min-height: 40px;
+      font-size: 0.86rem;
+    }
+
+    .unlock-edit-btn:hover {
+      background-color: var(--amber-warn);
+      color: #FFFFFF;
+    }
+
+    .locked-body-wrapper.is-locked {
+      opacity: 0.62;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    /* ==========================================================================
+       7. 分頁 1：動物偵探社（四階段防偷看觀察流程）
+       ========================================================================== */
+    .detective-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .zone-tag {
+      background-color: var(--forest-light);
+      color: var(--forest-dark);
+      border: 1.5px solid var(--forest-green);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 900;
+    }
+
+    .star-status {
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: var(--amber-dark);
+    }
+
+    .myth-question {
+      font-size: 1.18rem;
+      font-weight: 900;
+      margin: 6px 0 14px;
+      color: var(--text-main);
+    }
+
+    .step-box {
+      background-color: var(--bg-subcard);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .step-title {
+      font-weight: 900;
+      font-size: 0.96rem;
+      color: var(--forest-dark);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .guess-btn-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    @media (max-width: 480px) {
+      .guess-btn-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .choice-btn {
+      background-color: #FFFFFF;
+      color: var(--text-main);
+      border: 2.5px solid var(--border-color);
+      padding: 12px;
+      font-size: 1rem;
+    }
+
+    .choice-btn.selected {
+      background-color: var(--sky-light);
+      border-color: var(--sky-blue);
+      color: var(--sky-dark);
+    }
+
+    .primary-action-btn {
+      background-color: var(--forest-green);
+      color: #FFFFFF;
+      padding: 12px 20px;
+      width: 100%;
+      font-size: 1.02rem;
+      box-shadow: 0 3px 0 var(--forest-dark);
+    }
+
+    .primary-action-btn:hover:not(:disabled) {
+      background-color: var(--forest-dark);
+    }
+
+    .observe-timer-bar {
+      width: 100%;
+      height: 18px;
+      background-color: #E2E8F0;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 10px;
+      border: 1.5px solid var(--border-color);
+    }
+
+    .observe-timer-fill {
+      height: 100%;
+      width: 0%;
+      background-color: var(--orange-main);
+      transition: width 0.25s linear;
+    }
+
+    .evidence-options {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .evidence-btn {
+      justify-content: flex-start;
+      text-align: left;
+      background-color: #FFFFFF;
+      border: 2px solid var(--border-color);
+      color: var(--text-main);
+      padding: 12px 14px;
+    }
+
+    .evidence-btn.selected {
+      background-color: var(--orange-light);
+      border-color: var(--orange-main);
+      color: var(--orange-dark);
+    }
+
+    .pin-unlock-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pin-input {
+      width: 140px;
+      text-align: center;
+      font-weight: 900;
+      font-size: 1.2rem;
+      letter-spacing: 0.2em;
+      border: 2.5px solid var(--sky-blue);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      background-color: #FFFFFF;
+    }
+
+    .truth-reveal-box {
+      background-color: var(--forest-light);
+      border: 2.5px solid var(--forest-green);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+      margin-top: 10px;
+    }
+
+    .truth-reveal-box h4 {
+      margin: 0 0 6px;
+      color: var(--forest-dark);
+      font-size: 1.08rem;
+    }
+
+    /* ==========================================================================
+       8. 分頁 2：行為碼錶手（僅保留真實 3 分鐘計時 + 正字記號 SVG）
+       ========================================================================== */
+    .stopwatch-animal-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .field-label {
+      display: block;
+      font-weight: 900;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .styled-select, .styled-input, .styled-textarea {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background-color: #FFFFFF;
+      color: var(--text-main);
+    }
+
+    .styled-select:focus, .styled-input:focus, .styled-textarea:focus {
+      outline: none;
+      border-color: var(--sky-blue);
+      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.18);
+    }
+
+    .timer-display-box {
+      background-color: #0F172A;
+      color: #FFFFFF;
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      text-align: center;
+      margin-bottom: 16px;
+      border: 3px solid var(--sky-blue);
+    }
+
+    .timer-digits {
+      font-size: clamp(2.4rem, 6vw, 3.6rem);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.05em;
+      color: #38BDF8;
+      line-height: 1.1;
+    }
+
+    .timer-subtext {
+      font-size: 0.9rem;
+      color: #CBD5E1;
+      margin-top: 4px;
+    }
+
+    .timer-btn-group {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .timer-btn-start {
+      background-color: var(--forest-green);
+      color: #FFFFFF;
+      padding: 12px 20px;
+    }
+
+    .timer-btn-pause {
+      background-color: var(--amber-warn);
+      color: #1E293B;
+      padding: 12px 18px;
+    }
+
+    .timer-btn-reset {
+      background-color: #475569;
+      color: #FFFFFF;
+      padding: 12px 18px;
+    }
+
+    .behavior-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 600px) {
+      .behavior-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .behavior-card {
+      background-color: var(--bg-subcard);
+      border: 2.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .behavior-tap-btn {
+      width: 100%;
+      padding: 14px 12px;
+      font-size: 1.08rem;
+      color: #FFFFFF;
+      justify-content: space-between;
+    }
+
+    .beh-walk { background-color: #0284C7; box-shadow: 0 3px 0 #0369A1; }
+    .beh-eat  { background-color: #15803D; box-shadow: 0 3px 0 #14532D; }
+    .beh-rest { background-color: #D97706; box-shadow: 0 3px 0 #B45309; }
+    .beh-look { background-color: #7C3AED; box-shadow: 0 3px 0 #5B21B6; }
+
+    .tally-display-area {
+      background-color: #FFFFFF;
+      border: 1.5px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      min-height: 54px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .zheng-svgs {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .minus-one-btn {
+      min-height: 36px;
+      padding: 4px 10px;
+      font-size: 0.8rem;
+      background-color: #F1F5F9;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+
+    /* 行為比例長條圖 */
+    .chart-box {
+      background-color: var(--bg-subcard);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 115px 1fr 64px;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      font-weight: 800;
+    }
+
+    .bar-track {
+      height: 18px;
+      background-color: #E2E8F0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    /* ==========================================================================
+       9. 分頁 3：玩具設計師（完全由學生自行輸入筆記，無短語標籤拼貼）
+       ========================================================================== */
+    .bodypart-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .bodypart-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .bodypart-btn {
+      background-color: #FFFFFF;
+      color: var(--text-main);
+      border: 2.5px solid var(--border-color);
+      padding: 12px 10px;
+      font-size: 0.98rem;
+    }
+
+    .bodypart-btn.selected {
+      background-color: var(--purple-light);
+      border-color: var(--purple-main);
+      color: #4C1D95;
+    }
+
+    .free-input-group {
+      margin-bottom: 14px;
+    }
+
+    .char-counter-bar {
+      text-align: right;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* ==========================================================================
+       10. 分頁 4：探險戰報 & 小組總覽
+       ========================================================================== */
+    .overview-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: var(--radius-md);
+      border: 2px solid var(--border-color);
+      margin-bottom: 18px;
+    }
+
+    .overview-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+      background-color: #FFFFFF;
+    }
+
+    .overview-table th {
+      background-color: var(--forest-dark);
+      color: #FFFFFF;
+      padding: 12px 10px;
+      text-align: center;
+      font-size: 0.92rem;
+    }
+
+    .overview-table td {
+      padding: 12px 10px;
+      border-bottom: 1.5px solid var(--border-color);
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .overview-table tr.active-row {
+      background-color: var(--orange-light);
+    }
+
+    .cert-preview-box {
+      text-align: center;
+      background-color: var(--bg-subcard);
+      border: 2px dashed var(--forest-green);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    #certCanvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 12px;
+      box-shadow: var(--shadow-md);
+      border: 3px solid var(--forest-dark);
+    }
+
+    .report-btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    /* ==========================================================================
+       11. 通用 Modal 彈窗與全螢幕防呆交接遮罩
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(15, 23, 42, 0.78);
+      z-index: 900;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background-color: #FFFFFF;
+      border-radius: var(--radius-lg);
+      border: 3px solid var(--forest-dark);
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: clamp(16px, 3vw, 24px);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--forest-dark);
+    }
+
+    .modal-close-btn {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      min-height: 44px;
+      background-color: #F1F5F9;
+      color: var(--text-main);
+      border-radius: 12px;
+      font-size: 1.2rem;
+    }
+
+    /* 全螢幕交接遮罩專屬樣式 */
+    .handover-backdrop {
+      background-color: rgba(20, 83, 45, 0.96);
+      z-index: 980;
+    }
+
+    .handover-box {
+      max-width: 640px;
+      border: 4px solid var(--orange-main);
+      text-align: center;
+    }
+
+    .handover-seat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .handover-seat-btn {
+      padding: 18px 12px;
+      font-size: 1.25rem;
+      background-color: var(--bg-subcard);
+      border: 3px solid var(--forest-green);
+      color: var(--forest-dark);
+      flex-direction: column;
+    }
+
+    .handover-seat-btn:hover {
+      background-color: var(--orange-main);
+      border-color: var(--orange-dark);
+      color: #FFFFFF;
+    }
+
+    /* QR Code 畫布樣式 */
+    .qr-canvas-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #FFFFFF;
+      padding: 16px;
+      border: 2.5px solid var(--border-color);
+      border-radius: var(--radius-md);
+      margin-bottom: 14px;
+    }
+
+    #qrCanvas {
+      width: 240px;
+      height: 240px;
+      image-rendering: pixelated;
+      border: 8px solid #FFFFFF;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .guide-step-item {
+      background-color: var(--bg-subcard);
+      border-left: 5px solid var(--forest-green);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 10px;
+    }
+
+    .guide-step-item strong {
+      color: var(--forest-dark);
+      display: block;
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       頂部標題列與右上方 4 顆純圖示功能鍵（嚴格無文字標籤，具備 Hover Tooltip）
+       ========================================================================== -->
+  <header class="top-header">
+    <div class="top-bar-inner">
+      <div class="brand-group">
+        <h1 class="brand-title">
+          <span>🦁 台北市立動物園探險任務</span>
+          <span class="version-badge">v1.4</span>
+        </h1>
+      </div>
+
+      <!-- 右上方 4 顆純圖示功能鍵（純 SVG 圖示，不含任何文字標籤） -->
+      <div class="top-icon-actions" role="toolbar" aria-label="系統快捷功能列">
+        <!-- 1. QR Code 掃碼連結鍵 -->
+        <button type="button"
+                id="btnOpenQr"
+                class="icon-only-btn"
+                data-tooltip="QR Code 掃碼連結"
+                aria-label="QR Code 掃碼連結">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+            <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+            <path d="M14 14h3v3h-3z"></path>
+            <path d="M20 14v7h-7"></path>
+            <path d="M17 20h4"></path>
+          </svg>
+        </button>
+
+        <!-- 2. 全螢幕功能鍵 -->
+        <button type="button"
+                id="btnToggleFullscreen"
+                class="icon-only-btn"
+                data-tooltip="切換全螢幕模式"
+                aria-label="切換全螢幕模式">
+          <svg id="fullscreenIconSvg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+            <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+            <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+            <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+          </svg>
+        </button>
+
+        <!-- 3. 操作指引功能鍵 -->
+        <button type="button"
+                id="btnOpenGuide"
+                class="icon-only-btn"
+                data-tooltip="操作指引說明"
+                aria-label="操作指引說明">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </button>
+
+        <!-- 4. 教師設定功能鍵 -->
+        <button type="button"
+                id="btnOpenTeacher"
+                class="icon-only-btn"
+                data-tooltip="教師設定與管理"
+                aria-label="教師設定與管理">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 身分切換即時提示橫幅 -->
+  <div id="switchToast" class="switch-toast" role="status" aria-live="polite"></div>
+
+  <main class="main-wrapper">
+    <!-- ==========================================================================
+         小組 4 人共用一台 iPad 防呆快捷切換列
+         ========================================================================== -->
+    <section class="group-bar-card" aria-label="小組座號切換與字體設定">
+      <div class="group-bar-top">
+        <div class="class-info-group">
+          <span class="class-pill" id="displayClassBadge">🏫 5年13班</span>
+          <button type="button" class="edit-group-btn" id="btnEditGroupSeats">
+            ✏️ 設定本組4人座號
+          </button>
+        </div>
+
+        <div class="group-controls-right">
+          <!-- 三段字體縮放切換器 -->
+          <div class="font-switcher" role="group" aria-label="字體大小切換">
+            <button type="button" class="font-btn" data-font-val="standard">標準</button>
+            <button type="button" class="font-btn active" data-font-val="large">大字</button>
+            <button type="button" class="font-btn" data-font-val="xlarge">特大</button>
+          </div>
+
+          <!-- 換下一位組員全螢幕交接按鈕 -->
+          <button type="button" class="handover-trigger-btn" id="btnTriggerHandover">
+            🔄 換下一位組員
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 顆大尺寸座號卡片按鈕 -->
+      <div class="seat-grid" id="groupSeatGrid"></div>
+    </section>
+
+    <!-- ==========================================================================
+         四大互動任務分頁導覽列
+         ========================================================================== -->
+    <nav class="tab-nav" role="tablist" aria-label="探險任務分頁">
+      <button type="button" class="tab-btn active" data-tab="detective" role="tab" aria-selected="true">
+        🔍 動物偵探社
+      </button>
+      <button type="button" class="tab-btn" data-tab="stopwatch" role="tab" aria-selected="false">
+        ⏱️ 行為碼錶手
+      </button>
+      <button type="button" class="tab-btn" data-tab="toy" role="tab" aria-selected="false">
+        🧸 玩具設計師
+      </button>
+      <button type="button" class="tab-btn" data-tab="report" role="tab" aria-selected="false">
+        🏆 探險戰報 &amp; 小組總覽
+      </button>
+    </nav>
+
+    <!-- ==========================================================================
+         分頁 1：動物偵探社（防偷看四階段解鎖流程）
+         ========================================================================== -->
+    <section id="tab-detective" class="tab-panel active" role="tabpanel">
+      <div class="section-banner">
+        <div>
+          <h2>🔍 動物偵探社：現場眼睛找真相</h2>
+          <p>先鎖定直覺猜測 ➔ 看動物 15 秒 ➔ 回報目擊證據 ➔ 輸入現場解鎖碼看真相！</p>
+        </div>
+        <span class="class-pill" id="detectiveCurrentWho">👉 目前：1號</span>
+      </div>
+
+      <div id="detectiveCardsContainer"></div>
+    </section>
+
+    <!-- ==========================================================================
+         分頁 2：行為碼錶手（僅保留真實 3 分鐘計時，已刪除 5 秒快速體驗功能）
+         ========================================================================== -->
+    <section id="tab-stopwatch" class="tab-panel" role="tabpanel">
+      <div class="section-banner">
+        <div>
+          <h2>⏱️ 行為碼錶手：3 分鐘動作大統計</h2>
+          <p>專心盯著同一隻動物 3 分鐘，牠每做一個動作就按一下按鈕畫「正」字！</p>
+        </div>
+        <span class="class-pill" id="stopwatchCurrentWho">👉 目前：1號</span>
+      </div>
+
+      <div class="mission-card" id="stopwatchMissionCard">
+        <!-- 已完成防誤改保護鎖 -->
+        <div class="anti-edit-lock-bar" id="stopwatchLockBar" style="display: none;">
+          <span id="stopwatchLockText">🔒 1號 已完成本關卡紀錄</span>
+          <button type="button" class="unlock-edit-btn" id="btnUnlockStopwatch">
+            🔓 若需重做請點此解鎖修改
+          </button>
+        </div>
+
+        <div class="locked-body-wrapper" id="stopwatchBodyWrapper">
+          <div class="stopwatch-animal-row">
+            <div>
+              <label class="field-label" for="swAnimalSelect">1. 選擇你正在觀察的動物：</label>
+              <select id="swAnimalSelect" class="styled-select">
+                <option value="台灣黑熊">🐻 台灣黑熊（台灣動物區）</option>
+                <option value="梅花鹿">🦌 梅花鹿（台灣動物區）</option>
+                <option value="馬來貘">🐼 馬來貘（熱帶雨林區）</option>
+                <option value="紅毛猩猩">🦧 紅毛猩猩（熱帶雨林區）</option>
+                <option value="國王企鵝">🐧 國王企鵝（企鵝館）</option>
+                <option value="其他動物">🐾 其他動物（請在右邊填寫）</option>
+              </select>
+            </div>
+            <div>
+              <label class="field-label" for="swCustomAnimal">2. 補充動物名稱或位置（選填）：</label>
+              <input type="text" id="swCustomAnimal" class="styled-input" placeholder="例如：穿山甲館的水獺">
+            </div>
+          </div>
+
+          <!-- 真實 3 分鐘（180 秒）計時器 -->
+          <div class="timer-display-box">
+            <div class="timer-digits" id="swTimerDigits">03:00</div>
+            <div class="timer-subtext" id="swTimerStatus">按下「開始 3 分鐘計時」後，專心觀察動物動作</div>
+            <div class="timer-btn-group">
+              <button type="button" class="timer-btn-start" id="btnSwStart">
+                ▶️ 開始 3 分鐘計時（180秒）
+              </button>
+              <button type="button" class="timer-btn-pause" id="btnSwPause" disabled>
+                ⏸️ 暫停
+              </button>
+              <button type="button" class="timer-btn-reset" id="btnSwReset">
+                🔄 重新歸零
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 顆超大行為計數按鈕 + 正字 SVG -->
+          <div class="behavior-grid">
+            <div class="behavior-card">
+              <button type="button" class="behavior-tap-btn beh-walk" data-beh="walk">
+                <span>🚶 走來走去</span>
+                <span id="count-walk">0 次</span>
+              </button>
+              <div class="tally-display-area">
+                <div class="zheng-svgs" id="zheng-walk"></div>
+                <button type="button" class="minus-one-btn" data-minus="walk">↩️ 減1</button>
+              </div>
+            </div>
+
+            <div class="behavior-card">
+              <button type="button" class="behavior-tap-btn beh-eat" data-beh="eat">
+                <span>🍃 低頭吃東西</span>
+                <span id="count-eat">0 次</span>
+              </button>
+              <div class="tally-display-area">
+                <div class="zheng-svgs" id="zheng-eat"></div>
+                <button type="button" class="minus-one-btn" data-minus="eat">↩️ 減1</button>
+              </div>
+            </div>
+
+            <div class="behavior-card">
+              <button type="button" class="behavior-tap-btn beh-rest" data-beh="rest">
+                <span>😴 趴著休息</span>
+                <span id="count-rest">0 次</span>
+              </button>
+              <div class="tally-display-area">
+                <div class="zheng-svgs" id="zheng-rest"></div>
+                <button type="button" class="minus-one-btn" data-minus="rest">↩️ 減1</button>
+              </div>
+            </div>
+
+            <div class="behavior-card">
+              <button type="button" class="behavior-tap-btn beh-look" data-beh="look">
+                <span>👀 東張西望</span>
+                <span id="count-look">0 次</span>
+              </button>
+              <div class="tally-display-area">
+                <div class="zheng-svgs" id="zheng-look"></div>
+                <button type="button" class="minus-one-btn" data-minus="look">↩️ 減1</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 即時比例長條圖 -->
+          <div class="chart-box">
+            <div style="font-weight: 900; margin-bottom: 10px;">📊 動作次數比例圖（總計：<span id="swTotalCount">0</span> 次）</div>
+            <div class="bar-row">
+              <span>🚶 走來走去</span>
+              <div class="bar-track"><div class="bar-fill" id="bar-walk" style="width:0%; background:#0284C7;"></div></div>
+              <span id="pct-walk">0%</span>
+            </div>
+            <div class="bar-row">
+              <span>🍃 低頭吃東西</span>
+              <div class="bar-track"><div class="bar-fill" id="bar-eat" style="width:0%; background:#15803D;"></div></div>
+              <span id="pct-eat">0%</span>
+            </div>
+            <div class="bar-row">
+              <span>😴 趴著休息</span>
+              <div class="bar-track"><div class="bar-fill" id="bar-rest" style="width:0%; background:#D97706;"></div></div>
+              <span id="pct-rest">0%</span>
+            </div>
+            <div class="bar-row" style="margin-bottom: 0;">
+              <span>👀 東張西望</span>
+              <div class="bar-track"><div class="bar-fill" id="bar-look" style="width:0%; background:#7C3AED;"></div></div>
+              <span id="pct-look">0%</span>
+            </div>
+          </div>
+
+          <button type="button" class="primary-action-btn" id="btnSaveStopwatch">
+            💾 儲存觀察紀錄
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         分頁 3：玩具設計師（完全由學生自行輸入筆記，已刪除短語標籤拼貼功能）
+         ========================================================================== -->
+    <section id="tab-toy" class="tab-panel" role="tabpanel">
+      <div class="section-banner">
+        <div>
+          <h2>🧸 玩具設計師：幫動物找樂子</h2>
+          <p>找找看展區裡保育員放進去的玩具，用自己的話寫下觀察發現！</p>
+        </div>
+        <span class="class-pill" id="toyCurrentWho">👉 目前：1號</span>
+      </div>
+
+      <div class="mission-card" id="toyMissionCard">
+        <!-- 已完成防誤改保護鎖 -->
+        <div class="anti-edit-lock-bar" id="toyLockBar" style="display: none;">
+          <span id="toyLockText">🔒 1號 已完成本關卡紀錄</span>
+          <button type="button" class="unlock-edit-btn" id="btnUnlockToy">
+            🔓 若需重做請點此解鎖修改
+          </button>
+        </div>
+
+        <div class="locked-body-wrapper" id="toyBodyWrapper">
+          <!-- 步驟 1：選擇動物與展區 -->
+          <div class="free-input-group">
+            <label class="field-label" for="toyAnimalZone">步驟 1：你觀察的是哪一館的什麼動物？</label>
+            <input type="text" id="toyAnimalZone" class="styled-input" placeholder="例如：穿山甲館的樹懶、熱帶雨林區的馬來貘">
+          </div>
+
+          <!-- 步驟 2：複選動物用哪裡碰玩具 -->
+          <div class="free-input-group">
+            <span class="field-label">步驟 2：動物用身體的哪裡碰玩具？（可多選）</span>
+            <div class="bodypart-grid" id="bodypartGrid">
+              <button type="button" class="bodypart-btn" data-part="嘴巴">👄 嘴巴</button>
+              <button type="button" class="bodypart-btn" data-part="爪子">🐾 爪子</button>
+              <button type="button" class="bodypart-btn" data-part="鼻子">👃 鼻子</button>
+              <button type="button" class="bodypart-btn" data-part="身體推滾">🐾 身體推滾</button>
+            </div>
+          </div>
+
+          <!-- 步驟 3：純學生自主文字輸入區（無任何短語標籤按鈕） -->
+          <div class="free-input-group">
+            <label class="field-label" for="toyInputWhat">
+              1. 你找到什麼人造玩具？它長什麼樣子？
+            </label>
+            <input type="text" id="toyInputWhat" class="styled-input" placeholder="請自己輸入看到的玩具外觀（顏色、形狀、材質）...">
+          </div>
+
+          <div class="free-input-group">
+            <label class="field-label" for="toyInputHow">
+              2. 動物怎麼玩這個玩具？請寫下你看到的動作：
+            </label>
+            <textarea id="toyInputHow" class="styled-textarea" rows="3" placeholder="請自己寫下動物玩玩具的動作與反應..."></textarea>
+          </div>
+
+          <div class="free-input-group">
+            <label class="field-label" for="toyInputDesign">
+              3. 如果你是保育員，想幫牠設計什麼新玩具？
+            </label>
+            <textarea id="toyInputDesign" class="styled-textarea" rows="3" placeholder="請自己寫下你的創意新玩具點子..."></textarea>
+          </div>
+
+          <div class="char-counter-bar">
+            ✍️ 目前已輸入總字數：<span id="toyTotalChars">0</span> 字
+          </div>
+
+          <button type="button" class="primary-action-btn" id="btnSaveToy">
+            💾 儲存我的玩具設計筆記
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         分頁 4：探險戰報 & 小組總覽
+         ========================================================================== -->
+    <section id="tab-report" class="tab-panel" role="tabpanel">
+      <div class="section-banner">
+        <div>
+          <h2>🏆 探險戰報 &amp; 小組總覽</h2>
+          <p>查看本組 4 位組員的任務進度，並下載專屬 PNG 結業證書與全機 CSV 紀錄！</p>
+        </div>
+        <span class="class-pill" id="reportCurrentWho">👉 目前：1號</span>
+      </div>
+
+      <!-- 小組 4 位組員即時完成狀態對照表 -->
+      <div class="mission-card">
+        <h3 style="margin-top: 0; color: var(--forest-dark);">👥 本組 4 位組員任務進度對照表（點擊列可切換組員）</h3>
+        <div class="overview-table-wrap">
+          <table class="overview-table">
+            <thead>
+              <tr>
+                <th>座號</th>
+                <th>🔍 偵探社星數</th>
+                <th>⏱️ 行為碼錶紀錄</th>
+                <th>🧸 玩具設計筆記</th>
+                <th>總完成度</th>
+              </tr>
+            </thead>
+            <tbody id="groupOverviewTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 結業證書與 CSV 匯出 -->
+      <div class="mission-card">
+        <h3 style="margin-top: 0; color: var(--forest-dark);">🎓 個人探險結業證書（PNG 圖片）</h3>
+        <div class="cert-preview-box">
+          <canvas id="certCanvas" width="900" height="620"></canvas>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin: 10px 0 0;">
+            💡 提示：iPad 使用者可點下方「開啟大圖預覽」後，長按圖片即可直接存入相簿！
+          </p>
+          <div class="report-btn-row">
+            <button type="button" class="primary-action-btn" style="width: auto;" id="btnDownloadCert">
+              ⬇️ 下載結業證書 (PNG)
+            </button>
+            <button type="button" class="handover-trigger-btn" id="btnPreviewCertModal">
+              🖼️ 開啟大圖預覽（方便 iPad 長按存圖）
+            </button>
+            <button type="button" class="edit-group-btn" style="background: var(--sky-blue); color: #fff; border: none;" id="btnExportCsv">
+              📊 匯出全機探險紀錄 (Excel CSV)
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==========================================================================
+       彈窗 1：QR Code 掃碼分享視窗（純 JS 離線產生可掃描 QR Code）
+       ========================================================================== -->
+  <div id="qrModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="qrModalTitle">📱 QR Code 掃碼連結分享</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="qrModal" aria-label="關閉視窗">✕</button>
+      </div>
+      <div class="qr-canvas-wrap">
+        <canvas id="qrCanvas" width="280" height="280"></canvas>
+        <div style="font-size: 0.88rem; font-weight: 800; color: var(--forest-dark); margin-top: 8px;">
+          📷 使用手機或 iPad 相機掃描即可開啟連結
+        </div>
+      </div>
+      <div class="free-input-group">
+        <label class="field-label" for="qrUrlInput">網址或分享文字（修改後即時更新 QR Code）：</label>
+        <input type="text" id="qrUrlInput" class="styled-input" placeholder="請輸入網址...">
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <button type="button" class="primary-action-btn" style="flex: 1;" id="btnCopyQrUrl">
+          📋 複製連結
+        </button>
+        <button type="button" class="edit-group-btn" style="flex: 1;" id="btnResetQrUrl">
+          🔄 還原目前網址
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈窗 2：五年級探險操作指引彈窗
+       ========================================================================== -->
+  <div id="guideModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="guideModalTitle">📖 五年級探險操作指引小幫手</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="guideModal" aria-label="關閉視窗">✕</button>
+      </div>
+      <div class="guide-step-item">
+        <strong>1. 輪流共用 iPad 怎麼換人？</strong>
+        先在最上方點「✏️ 設定本組4人座號」設定 4 位組員座號。每次換人操作前，請點自己的座號按鈕，或按橘色「🔄 換下一位組員」交接，才不會蓋掉別人的紀錄喔！
+      </div>
+      <div class="guide-step-item">
+        <strong>2. 🔍 動物偵探社怎麼破關？</strong>
+        ① 先選「我覺得是真的/假的」並鎖定猜測 ➔ ② 按下「開始現場觀察 15 秒」專心看動物 ➔ ③ 勾選現場看到的證據 ➔ ④ 請老師或小組長輸入現場解鎖碼，就能看到真相與星星！
+      </div>
+      <div class="guide-step-item">
+        <strong>3. ⏱️ 行為碼錶手怎麼記錄？</strong>
+        選好觀察動物後，按下「▶️ 開始 3 分鐘計時（180秒）」。動物每做一個動作就按一次按鈕，畫面會幫你一筆一畫寫出「正」字！計時結束後記得按「💾 儲存觀察紀錄」。
+      </div>
+      <div class="guide-step-item">
+        <strong>4. 🧸 玩具設計師怎麼完成？</strong>
+        找出籠子裡保育員放的人造玩具，勾選動物用哪裡碰玩具，再把你的發現與新玩具點子自己打字寫進三個格子裡，最後按「💾 儲存我的玩具設計筆記」。
+      </div>
+      <div class="guide-step-item" style="margin-bottom: 0;">
+        <strong>5. 🏆 怎麼存下結業證書？</strong>
+        到「🏆 探險戰報 &amp; 小組總覽」分頁，點「🖼️ 開啟大圖預覽」並長按證書圖片，就能存進 iPad 相簿！
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈窗 3：教師設定與現場管理中心（密碼 2026）
+       ========================================================================== -->
+  <div id="teacherModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="teacherModalTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="teacherModalTitle">⚙️ 教師現場管理中心</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="teacherModal" aria-label="關閉視窗">✕</button>
+      </div>
+
+      <!-- 密碼驗證區 -->
+      <div id="teacherAuthBox">
+        <p style="margin-top: 0; font-weight: 800;">請輸入教師管理密碼以開啟設定（預設密碼：<code>2026</code>）：</p>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="password" id="teacherPwdInput" class="styled-input" placeholder="輸入管理密碼" inputmode="numeric">
+          <button type="button" class="primary-action-btn" style="width: auto; white-space: nowrap;" id="btnTeacherLogin">
+            🔓 進入管理
+          </button>
+        </div>
+        <p id="teacherAuthMsg" style="color: var(--red-main); font-weight: 800; margin-bottom: 0;"></p>
+      </div>
+
+      <!-- 登入後管理面板 -->
+      <div id="teacherControlPanel" style="display: none;">
+        <div class="free-input-group">
+          <label class="field-label" for="settingUnlockPin">1. 動物偵探社「現場解鎖碼」（4 位數字）：</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="settingUnlockPin" class="styled-input" maxlength="6" inputmode="numeric">
+            <button type="button" class="primary-action-btn" style="width: auto; white-space: nowrap;" id="btnSaveTeacherPin">
+              儲存解鎖碼
+            </button>
+          </div>
+        </div>
+
+        <div class="free-input-group">
+          <span class="field-label">2. 偵探社解鎖模式切換：</span>
+          <div class="guess-btn-row">
+            <button type="button" class="choice-btn" id="btnModeStrict">🔒 嚴格模式（需輸入解鎖碼）</button>
+            <button type="button" class="choice-btn" id="btnModeAuto">🟢 自主模式（觀察完自動解鎖）</button>
+          </div>
+        </div>
+
+        <div class="free-input-group">
+          <span class="field-label">3. 現場輔助與報表工具：</span>
+          <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+            <button type="button" class="handover-trigger-btn" id="btnTeacherUnlockAllCurrent">
+              ⭐ 為目前操作學生一鍵解鎖全部偵探題目
+            </button>
+            <button type="button" class="primary-action-btn" style="background: var(--sky-blue);" id="btnTeacherExportCsv">
+              📊 匯出全機所有座號 Excel CSV 戰報
+            </button>
+          </div>
+        </div>
+
+        <div style="border-top: 2px dashed var(--border-color); padding-top: 12px; margin-top: 12px;">
+          <span class="field-label" style="color: var(--red-main);">4. 資料清理區（需二次確認）：</span>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <button type="button" class="edit-group-btn" style="border-color: var(--red-main); color: var(--red-main);" id="btnAskClearCurrent">
+              🗑️ 清除目前座號紀錄
+            </button>
+            <button type="button" class="edit-group-btn" style="background: var(--red-main); color: #fff; border-color: var(--red-main);" id="btnAskClearAll">
+              ⚠️ 清除全機所有測試資料
+            </button>
+          </div>
+          <div id="clearConfirmBox" style="display: none; background: var(--red-light); border: 2px solid var(--red-main); border-radius: 10px; padding: 10px; margin-top: 10px;">
+            <p id="clearConfirmText" style="margin: 0 0 8px; font-weight: 900; color: var(--red-main);"></p>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="edit-group-btn" style="background: var(--red-main); color: #fff;" id="btnConfirmClearExecute">確定刪除</button>
+              <button type="button" class="edit-group-btn" id="btnCancelClearExecute">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈窗 4：設定本組 4 人班級與座號視窗
+       ========================================================================== -->
+  <div id="groupSetupModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="groupSetupTitle">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="groupSetupTitle">✏️ 設定本組班級與 4 位組員座號</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="groupSetupModal" aria-label="關閉視窗">✕</button>
+      </div>
+      <div class="free-input-group">
+        <label class="field-label" for="inputClassName">班級名稱：</label>
+        <input type="text" id="inputClassName" class="styled-input" placeholder="例如：5年13班">
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px;">
+        <div>
+          <label class="field-label" for="inputSeat1">組員 1 座號：</label>
+          <input type="text" id="inputSeat1" class="styled-input" placeholder="例如：1號">
+        </div>
+        <div>
+          <label class="field-label" for="inputSeat2">組員 2 座號：</label>
+          <input type="text" id="inputSeat2" class="styled-input" placeholder="例如：2號">
+        </div>
+        <div>
+          <label class="field-label" for="inputSeat3">組員 3 座號：</label>
+          <input type="text" id="inputSeat3" class="styled-input" placeholder="例如：3號">
+        </div>
+        <div>
+          <label class="field-label" for="inputSeat4">組員 4 座號：</label>
+          <input type="text" id="inputSeat4" class="styled-input" placeholder="例如：4號">
+        </div>
+      </div>
+      <button type="button" class="primary-action-btn" id="btnSaveGroupSetup">
+        ✅ 儲存小組設定
+      </button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈窗 5：全螢幕防呆交接遮罩 (Handover Modal)
+       ========================================================================== -->
+  <div id="handoverModal" class="modal-backdrop handover-backdrop" role="dialog" aria-modal="true" aria-labelledby="handoverTitle">
+    <div class="modal-box handover-box">
+      <div style="font-size: 3rem; margin-bottom: 6px;">🤝</div>
+      <h2 id="handoverTitle" style="margin: 0 0 10px; color: var(--forest-dark); font-size: 1.4rem;">
+        🔒 紀錄已安全存檔！
+      </h2>
+      <p id="handoverDesc" style="font-size: 1.08rem; font-weight: 800; color: var(--text-main); margin: 0 0 14px;">
+        請把 iPad 交給下一位組員，並請本人點擊自己的座號開始任務：
+      </p>
+      <div class="handover-seat-grid" id="handoverSeatGrid"></div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       彈窗 6：結業證書大圖預覽視窗（方便 iPad 長按存入相簿）
+       ========================================================================== -->
+  <div id="certPreviewModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="certPreviewTitle">
+    <div class="modal-box" style="max-width: 720px; text-align: center;">
+      <div class="modal-header">
+        <h3 id="certPreviewTitle">🎓 長按下方證書圖片即可存入相簿</h3>
+        <button type="button" class="modal-close-btn" data-close-modal="certPreviewModal" aria-label="關閉視窗">✕</button>
+      </div>
+      <img id="certPreviewImg" alt="台北市立動物園探險結業證書" style="max-width: 100%; height: auto; border-radius: 12px; border: 3px solid var(--forest-dark);">
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       一、核心資料與常數定義 (Data & Constants)
+       ========================================================================== */
+    const STORAGE_KEY = "tpzoo_mission_v1_4_data";
+    const TEACHER_MASTER_PWD = "2026";
+    const OBSERVE_SECONDS = 15;
+    const STOPWATCH_TOTAL_SECONDS = 180; // 真實 3 分鐘（180 秒），無任何快速體驗按鈕
+
+    const DETECTIVE_MISSIONS = [
+      {
+        id: "hippo",
+        zone: "🦛 河馬廣場",
+        title: "任務 1：河馬真的會流「血汗」嗎？",
+        prompt: "卡通裡河馬流汗時皮膚紅紅的，好像流血一樣。現場看看河馬的皮膚，這是真的嗎？",
+        correctGuess: "false", // 「流血汗」是假的，其實是紅色防曬保濕分泌物
+        evidenceOptions: [
+          "皮膚亮亮的，有透明或淡粉紅色的黏液",
+          "皮膚乾乾粗粗的，完全沒有任何水珠",
+          "河馬一直泡在水裡，只露出眼睛和耳朵"
+        ],
+        truthTitle: "💡 真相大白：不是血！是河馬專屬的「天然防曬乳」",
+        truthDesc: "河馬沒有汗腺，不會流血汗！牠皮膚分泌的紅褐色黏液可以防曬、保濕又能殺菌，保護皮膚不被太陽曬傷喔！"
+      },
+      {
+        id: "penguin",
+        zone: "🐧 企鵝館",
+        title: "任務 2：黑腳企鵝也住在冰天雪地裡嗎？",
+        prompt: "所有企鵝都住在零下好幾十度的南極冰塊上嗎？看看黑腳企鵝的展區環境！",
+        correctGuess: "false",
+        evidenceOptions: [
+          "展區裡有岩石和沙地，沒有堆滿厚厚的冰塊",
+          "黑腳企鵝正在岩石上走動或在水裡游泳",
+          "展區裡全部都是白雪和冰山"
+        ],
+        truthTitle: "💡 真相大白：黑腳企鵝來自溫暖的「南非海岸」",
+        truthDesc: "不是所有企鵝都怕熱！黑腳企鵝（斑嘴環企鵝）住在非洲南部的海邊岩石與沙灘上，不需要冰天雪地也能快樂生活！"
+      },
+      {
+        id: "pangolin",
+        zone: "🦔 穿山甲館",
+        title: "任務 3：台灣穿山甲用尖牙咬碎螞蟻嗎？",
+        prompt: "穿山甲最愛吃螞蟻和白蟻，牠嘴巴裡長滿尖尖的牙齒用來咬碎蟲子，對嗎？",
+        correctGuess: "false",
+        evidenceOptions: [
+          "牠用長長的鼻子聞味道，伸出細長舌頭舔食",
+          "牠全身蓋滿一片片像松果一樣的硬鱗片",
+          "牠正蜷縮成一顆球在樹洞或草堆裡睡覺"
+        ],
+        truthTitle: "💡 真相大白：穿山甲「完全沒有牙齒」！",
+        truthDesc: "台灣穿山甲一顆牙齒都沒有！牠靠超靈敏的嗅覺找蟻窩，用長達 20 公分以上的黏黏長舌頭把螞蟻黏進肚子裡！"
+      }
+    ];
+
+    /* ==========================================================================
+       二、應用程式狀態管理 (State & LocalStorage Persistence)
+       ========================================================================== */
+    function createEmptyStudentRecord() {
+      return {
+        detective: {
+          hippo:    { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false },
+          penguin:  { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false },
+          pangolin: { guess: "", lockedGuess: false, observed: false, evidence: "", unlocked: false }
+        },
+        stopwatch: {
+          animal: "台灣黑熊",
+          customAnimal: "",
+          remainingSeconds: STOPWATCH_TOTAL_SECONDS,
+          counts: { walk: 0, eat: 0, rest: 0, look: 0 },
+          saved: false,
+          editLocked: false
+        },
+        toy: {
+          animalZone: "",
+          bodyParts: [],
+          whatText: "",
+          howText: "",
+          designText: "",
+          saved: false,
+          editLocked: false
+        }
+      };
+    }
+
+    let appState = {
+      className: "5年13班",
+      groupSeats: ["1號", "2號", "3號", "4號"],
+      currentSeat: "1號",
+      fontSize: "large",
+      teacherSettings: {
+        unlockPin: "2026",
+        strictMode: true
+      },
+      students: {}
+    };
+
+    // 暫存計時器 interval（不存入 localStorage）
+    let observeTimers = {}; // { hippo: intervalId, ... }
+    let observeCountdownLeft = {}; // { hippo: 15, ... }
+    let swIntervalId = null;
+    let swIsRunning = false;
+    let pendingClearMode = ""; // "current" | "all"
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            appState = Object.assign(appState, parsed);
+          }
+        }
+      } catch (e) {
+        console.warn("讀取離線紀錄失敗，使用預設狀態", e);
+      }
+      if (!Array.isArray(appState.groupSeats) || appState.groupSeats.length !== 4) {
+        appState.groupSeats = ["1號", "2號", "3號", "4號"];
+      }
+      if (!appState.groupSeats.includes(appState.currentSeat)) {
+        appState.currentSeat = appState.groupSeats[0];
+      }
+      appState.groupSeats.forEach(seat => ensureStudentRecord(seat));
+      applyFontSize(appState.fontSize || "large");
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        console.warn("儲存離線紀錄失敗", e);
+      }
+    }
+
+    function ensureStudentRecord(seat) {
+      if (!appState.students[seat]) {
+        appState.students[seat] = createEmptyStudentRecord();
+      } else {
+        const base = createEmptyStudentRecord();
+        const cur = appState.students[seat];
+        cur.detective = Object.assign({}, base.detective, cur.detective);
+        Object.keys(base.detective).forEach(k => {
+          cur.detective[k] = Object.assign({}, base.detective[k], cur.detective[k]);
+        });
+        cur.stopwatch = Object.assign({}, base.stopwatch, cur.stopwatch);
+        cur.stopwatch.counts = Object.assign({}, base.stopwatch.counts, cur.stopwatch.counts);
+        cur.toy = Object.assign({}, base.toy, cur.toy);
+        if (!Array.isArray(cur.toy.bodyParts)) cur.toy.bodyParts = [];
+      }
+      return appState.students[seat];
+    }
+
+    function getCurrentRecord() {
+      return ensureStudentRecord(appState.currentSeat);
+    }
+
+    /* ==========================================================================
+       三、Web Audio API 離線音效合成器 (Zero External Audio Files)
+       ========================================================================== */
+    let audioCtx = null;
+    function playTone(freq, duration = 0.12, type = "sine", volume = 0.18, delay = 0) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        if (!audioCtx) audioCtx = new AudioContextClass();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + delay + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + delay);
+        osc.stop(audioCtx.currentTime + delay + duration);
+      } catch (e) {
+        // 忽略瀏覽器音效限制
+      }
+    }
+
+    function playClickSound() {
+      playTone(620, 0.07, "triangle", 0.14);
+    }
+
+    function playSwitchSound() {
+      playTone(523.25, 0.1, "sine", 0.16, 0);
+      playTone(659.25, 0.12, "sine", 0.16, 0.09);
+      playTone(783.99, 0.16, "sine", 0.18, 0.18);
+    }
+
+    function playSuccessFanfare() {
+      playTone(523.25, 0.12, "triangle", 0.18, 0);
+      playTone(659.25, 0.12, "triangle", 0.18, 0.11);
+      playTone(783.99, 0.12, "triangle", 0.18, 0.22);
+      playTone(1046.5, 0.28, "triangle", 0.22, 0.33);
+    }
+
+    /* ==========================================================================
+       四、純 JS 離線 ISO/IEC 18004 QR Code 產生器 (Zero Network Dependencies)
+       ========================================================================== */
+    const OfflineQR = (function () {
+      // GF(256) 指數與對數表（本原多項式 0x11d = 285）
+      const EXP = new Uint8Array(512);
+      const LOG = new Uint8Array(256);
+      let x = 1;
+      for (let i = 0; i < 255; i++) {
+        EXP[i] = x;
+        LOG[x] = i;
+        x <<= 1;
+        if (x & 0x100) x ^= 0x11d;
+      }
+      for (let i = 255; i < 512; i++) {
+        EXP[i] = EXP[i - 255];
+      }
+
+      function gfMul(a, b) {
+        if (a === 0 || b === 0) return 0;
+        return EXP[LOG[a] + LOG[b]];
+      }
+
+      function getGeneratorPoly(ecCount) {
+        let poly = [1];
+        for (let i = 0; i < ecCount; i++) {
+          const next = new Array(poly.length + 1).fill(0);
+          const factor = EXP[i];
+          for (let j = 0; j < poly.length; j++) {
+            next[j] ^= poly[j];
+            next[j + 1] ^= gfMul(poly[j], factor);
+          }
+          poly = next;
+        }
+        return poly;
+      }
+
+      function computeRS(dataBytes, ecCount) {
+        const gen = getGeneratorPoly(ecCount);
+        const res = new Uint8Array(dataBytes.length + ecCount);
+        res.set(dataBytes);
+        for (let i = 0; i < dataBytes.length; i++) {
+          const coef = res[i];
+          if (coef !== 0) {
+            for (let j = 1; j < gen.length; j++) {
+              res[i + j] ^= gfMul(gen[j], coef);
+            }
+          }
+        }
+        return res.slice(dataBytes.length);
+      }
+
+      // Version 1 ~ 10 ECC Level L 規格表: [version, size, blocks: [[count, dataCw, ecCw], ...], alignCenters]
+      const VERSIONS_L = [
+        null,
+        { v: 1,  size: 21, blocks: [[1, 19, 7]],  align: [] },
+        { v: 2,  size: 25, blocks: [[1, 34, 10]], align: [6, 18] },
+        { v: 3,  size: 29, blocks: [[1, 55, 15]], align: [6, 22] },
+        { v: 4,  size: 33, blocks: [[1, 80, 20]], align: [6, 26] },
+        { v: 5,  size: 37, blocks: [[1, 108, 26]], align: [6, 30] },
+        { v: 6,  size: 41, blocks: [[2, 68, 18]], align: [6, 34] },
+        { v: 7,  size: 45, blocks: [[2, 78, 20]], align: [6, 22, 38] },
+        { v: 8,  size: 49, blocks: [[2, 97, 24]], align: [6, 24, 42] },
+        { v: 9,  size: 53, blocks: [[2, 116, 30]], align: [6, 26, 46] },
+        { v: 10, size: 57, blocks: [[2, 68, 18], [2, 69, 18]], align: [6, 28, 50] }
+      ];
+
+      function utf8Encode(str) {
+        if (typeof TextEncoder !== "undefined") {
+          return Array.from(new TextEncoder().encode(str));
+        }
+        const bytes = [];
+        for (let i = 0; i < str.length; i++) {
+          let code = str.charCodeAt(i);
+          if (code < 0x80) bytes.push(code);
+          else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6), 0x80 | (code & 0x3f));
+          } else {
+            bytes.push(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f));
+          }
+        }
+        return bytes;
+      }
+
+      function encode(text) {
+        let bytes = utf8Encode(text || "https://www.zoo.gov.taipei/");
+        if (bytes.length > 271) bytes = bytes.slice(0, 271);
+
+        // 選擇最小可容納的 Version (1..10)
+        let spec = null;
+        let totalDataCw = 0;
+        for (let v = 1; v <= 10; v++) {
+          const s = VERSIONS_L[v];
+          const cap = s.blocks.reduce((sum, b) => sum + b[0] * b[1], 0);
+          const countBits = v <= 9 ? 8 : 16;
+          const neededBits = 4 + countBits + bytes.length * 8;
+          if (neededBits <= cap * 8) {
+            spec = s;
+            totalDataCw = cap;
+            break;
+          }
+        }
+        if (!spec) spec = VERSIONS_L[10];
+
+        // 建立位元串流 (Byte mode: 0100)
+        const bits = [];
+        const pushBits = (val, len) => {
+          for (let i = len - 1; i >= 0; i--) bits.push((val >> i) & 1);
+        };
+        pushBits(0b0100, 4);
+        pushBits(bytes.length, spec.v <= 9 ? 8 : 16);
+        bytes.forEach(b => pushBits(b, 8));
+
+        const maxBits = totalDataCw * 8;
+        const termLen = Math.min(4, maxBits - bits.length);
+        pushBits(0, termLen);
+        while (bits.length % 8 !== 0) bits.push(0);
+
+        const dataCw = [];
+        for (let i = 0; i < bits.length; i += 8) {
+          let byte = 0;
+          for (let j = 0; j < 8; j++) byte = (byte << 1) | bits[i + j];
+          dataCw.push(byte);
+        }
+        const padBytes = [0xec, 0x11];
+        let padIdx = 0;
+        while (dataCw.length < totalDataCw) {
+          dataCw.push(padBytes[padIdx % 2]);
+          padIdx++;
+        }
+
+        // 分割區塊與計算 RS 錯誤更正碼
+        const dataBlocks = [];
+        const ecBlocks = [];
+        let offset = 0;
+        spec.blocks.forEach(([count, dLen, ecLen]) => {
+          for (let b = 0; b < count; b++) {
+            const slice = dataCw.slice(offset, offset + dLen);
+            offset += dLen;
+            dataBlocks.push(slice);
+            ecBlocks.push(Array.from(computeRS(slice, ecLen)));
+          }
+        });
+
+        // 交錯排列資料碼字與 EC 碼字
+        const finalCodewords = [];
+        const maxD = Math.max(...dataBlocks.map(b => b.length));
+        for (let i = 0; i < maxD; i++) {
+          dataBlocks.forEach(b => { if (i < b.length) finalCodewords.push(b[i]); });
+        }
+        const maxE = Math.max(...ecBlocks.map(b => b.length));
+        for (let i = 0; i < maxE; i++) {
+          ecBlocks.forEach(b => { if (i < b.length) finalCodewords.push(b[i]); });
+        }
+
+        const N = spec.size;
+        const grid = Array.from({ length: N }, () => new Int8Array(N).fill(-1));
+        const isFunc = Array.from({ length: N }, () => new Uint8Array(N));
+
+        const setMod = (r, c, val, func = true) => {
+          if (r >= 0 && r < N && c >= 0 && c < N) {
+            grid[r][c] = val ? 1 : 0;
+            if (func) isFunc[r][c] = 1;
+          }
+        };
+
+        // 繪製 Finder Patterns + Separators
+        const drawFinder = (r0, c0) => {
+          for (let dr = -1; dr <= 7; dr++) {
+            for (let dc = -1; dc <= 7; dc++) {
+              const r = r0 + dr, c = c0 + dc;
+              if (r < 0 || r >= N || c < 0 || c >= N) continue;
+              const inOuter = dr >= 0 && dr <= 6 && dc >= 0 && dc <= 6;
+              const inInner = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4;
+              const onBorder = dr === 0 || dr === 6 || dc === 0 || dc === 6;
+              setMod(r, c, inOuter && (onBorder || inInner) ? 1 : 0, true);
+            }
+          }
+        };
+        drawFinder(0, 0);
+        drawFinder(0, N - 7);
+        drawFinder(N - 7, 0);
+
+        // 繪製 Alignment Patterns
+        const alignPos = spec.align;
+        for (let i = 0; i < alignPos.length; i++) {
+          for (let j = 0; j < alignPos.length; j++) {
+            const rCenter = alignPos[i], cCenter = alignPos[j];
+            if (isFunc[rCenter][cCenter]) continue;
+            for (let dr = -2; dr <= 2; dr++) {
+              for (let dc = -2; dc <= 2; dc++) {
+                const dark = Math.max(Math.abs(dr), Math.abs(dc)) !== 1;
+                setMod(rCenter + dr, cCenter + dc, dark ? 1 : 0, true);
+              }
+            }
+          }
+        }
+
+        // 繪製 Timing Patterns
+        for (let i = 8; i < N - 8; i++) {
+          const bit = i % 2 === 0 ? 1 : 0;
+          if (!isFunc[6][i]) setMod(6, i, bit, true);
+          if (!isFunc[i][6]) setMod(i, 6, bit, true);
+        }
+
+        // Dark Module 與保留 Format / Version Info 區域
+        setMod(N - 8, 8, 1, true);
+        for (let i = 0; i < 9; i++) {
+          if (!isFunc[8][i]) isFunc[8][i] = 1;
+          if (!isFunc[i][8]) isFunc[i][8] = 1;
+        }
+        for (let i = 0; i < 8; i++) {
+          isFunc[8][N - 1 - i] = 1;
+          isFunc[N - 1 - i][8] = 1;
+        }
+        if (spec.v >= 7) {
+          let d = spec.v << 12;
+          for (let i = 17; i >= 12; i--) {
+            if ((d >> i) & 1) d ^= (0x1f25 << (i - 12));
+          }
+          const verBits = (spec.v << 12) | d;
+          for (let i = 0; i < 18; i++) {
+            const bit = (verBits >> i) & 1;
+            const r = Math.floor(i / 3);
+            const c = N - 11 + (i % 3);
+            setMod(r, c, bit, true);
+            setMod(c, r, bit, true);
+          }
+        }
+
+        // Zigzag 填入資料位元
+        const allBits = [];
+        finalCodewords.forEach(cw => {
+          for (let b = 7; b >= 0; b--) allBits.push((cw >> b) & 1);
+        });
+
+        let bitIdx = 0;
+        let upward = true;
+        for (let col = N - 1; col >= 1; col -= 2) {
+          if (col === 6) col--;
+          for (let step = 0; step < N; step++) {
+            const row = upward ? (N - 1 - step) : step;
+            for (let dx = 0; dx < 2; dx++) {
+              const c = col - dx;
+              if (!isFunc[row][c]) {
+                grid[row][c] = bitIdx < allBits.length ? allBits[bitIdx++] : 0;
+              }
+            }
+          }
+          upward = !upward;
+        }
+
+        // 測試 8 種 Mask 並挑選最佳懲罰分數最低者
+        const maskFn = [
+          (r, c) => (r + c) % 2 === 0,
+          (r, c) => r % 2 === 0,
+          (r, c) => c % 3 === 0,
+          (r, c) => (r + c) % 3 === 0,
+          (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+          (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+          (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+          (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+        ];
+
+        const applyFormatInfo = (mat, maskIdx) => {
+          const data = (0b01 << 3) | maskIdx; // ECC L = 01
+          let d = data << 10;
+          for (let i = 14; i >= 10; i--) {
+            if ((d >> i) & 1) d ^= (0x537 << (i - 10));
+          }
+          const fmt = ((data << 10) | d) ^ 0x5412;
+          for (let i = 0; i <= 5; i++) mat[8][i] = (fmt >> i) & 1;
+          mat[8][7] = (fmt >> 6) & 1;
+          mat[8][8] = (fmt >> 7) & 1;
+          mat[7][8] = (fmt >> 8) & 1;
+          for (let i = 9; i <= 14; i++) mat[14 - i][8] = (fmt >> i) & 1;
+
+          for (let i = 0; i <= 7; i++) mat[N - 1 - i][8] = (fmt >> i) & 1;
+          for (let i = 8; i <= 14; i++) mat[8][N - 15 + i] = (fmt >> i) & 1;
+        };
+
+        let bestMat = null;
+        let bestScore = Infinity;
+
+        for (let m = 0; m < 8; m++) {
+          const candidate = grid.map((row, r) =>
+            row.map((val, c) => (isFunc[r][c] ? val : (val ^ (maskFn[m](r, c) ? 1 : 0))))
+          );
+          applyFormatInfo(candidate, m);
+
+          // 簡易評分規則（相鄰同色 + 2x2 同色區塊 + 黑白比例）
+          let score = 0;
+          let darkCount = 0;
+          for (let r = 0; r < N; r++) {
+            let runH = 1, runV = 1;
+            for (let c = 0; c < N; c++) {
+              if (candidate[r][c] === 1) darkCount++;
+              if (c > 0) {
+                if (candidate[r][c] === candidate[r][c - 1]) {
+                  runH++;
+                  if (runH === 5) score += 3;
+                  else if (runH > 5) score += 1;
+                } else runH = 1;
+
+                if (candidate[c][r] === candidate[c - 1][r]) {
+                  runV++;
+                  if (runV === 5) score += 3;
+                  else if (runV > 5) score += 1;
+                } else runV = 1;
+              }
+              if (r < N - 1 && c < N - 1) {
+                const sum2x2 = candidate[r][c] + candidate[r + 1][c] + candidate[r][c + 1] + candidate[r + 1][c + 1];
+                if (sum2x2 === 0 || sum2x2 === 4) score += 3;
+              }
+            }
+          }
+          const pct = (darkCount * 100) / (N * N);
+          score += Math.abs(Math.round(pct) - 50) * 2;
+          if (score < bestScore) {
+            bestScore = score;
+            bestMat = candidate;
+          }
+        }
+
+        return bestMat;
+      }
+
+      function renderToCanvas(canvas, text) {
+        const matrix = encode(text);
+        const N = matrix.length;
+        const quietZone = 4;
+        const totalModules = N + quietZone * 2;
+        const size = canvas.width;
+        const ctx = canvas.getContext("2d");
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, size, size);
+
+        const cellSize = size / totalModules;
+        ctx.fillStyle = "#0F172A";
+        for (let r = 0; r < N; r++) {
+          for (let c = 0; c < N; c++) {
+            if (matrix[r][c] === 1) {
+              const x = Math.floor((c + quietZone) * cellSize);
+              const y = Math.floor((r + quietZone) * cellSize);
+              const w = Math.ceil((c + quietZone + 1) * cellSize) - x;
+              const h = Math.ceil((r + quietZone + 1) * cellSize) - y;
+              ctx.fillRect(x, y, w, h);
+            }
+          }
+        }
+      }
+
+      return { renderToCanvas };
+    })();
+
+    /* ==========================================================================
+       五、台灣標準筆順「正」字 SVG 繪製器
+       ========================================================================== */
+    function renderZhengWordSvg(strokes) {
+      // strokes: 1 ~ 5
+      // 1: 上橫, 2: 中豎, 3: 右短橫, 4: 左短豎, 5: 底橫
+      let paths = "";
+      if (strokes >= 1) paths += `<line x1="6" y1="8" x2="34" y2="8" />`;
+      if (strokes >= 2) paths += `<line x1="20" y1="8" x2="20" y2="34" />`;
+      if (strokes >= 3) paths += `<line x1="20" y1="20" x2="32" y2="20" />`;
+      if (strokes >= 4) paths += `<line x1="10" y1="18" x2="10" y2="34" />`;
+      if (strokes >= 5) paths += `<line x1="4" y1="34" x2="36" y2="34" />`;
+
+      return `<svg width="32" height="32" viewBox="0 0 40 40" stroke="#DC2626" stroke-width="3.6" stroke-linecap="round" fill="none" aria-label="${strokes}畫">${paths}</svg>`;
+    }
+
+    function buildZhengTallyHtml(count) {
+      if (count <= 0) {
+        return `<span style="color:#94A3B8; font-size:0.85rem;">尚未記錄</span>`;
+      }
+      const fullWords = Math.floor(count / 5);
+      const rem = count % 5;
+      let html = "";
+      for (let i = 0; i < fullWords; i++) html += renderZhengWordSvg(5);
+      if (rem > 0) html += renderZhengWordSvg(rem);
+      return html;
+    }
+
+    /* ==========================================================================
+       六、頂部通知橫幅、字體縮放、全螢幕與小組 4 人交接系統
+       ========================================================================== */
+    let toastTimeout = null;
+    function showSwitchToast(msg) {
+      const el = document.getElementById("switchToast");
+      el.textContent = msg;
+      el.classList.add("show");
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        el.classList.remove("show");
+      }, 2600);
+    }
+
+    function applyFontSize(sizeKey) {
+      appState.fontSize = sizeKey;
+      document.documentElement.setAttribute("data-font", sizeKey);
+      document.querySelectorAll(".font-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.fontVal === sizeKey);
+      });
+      saveState();
+    }
+
+    function updateFullscreenButtonUI(isFull) {
+      const btn = document.getElementById("btnToggleFullscreen");
+      const svg = document.getElementById("fullscreenIconSvg");
+      if (isFull) {
+        btn.setAttribute("data-tooltip", "退出全螢幕模式");
+        btn.setAttribute("aria-label", "退出全螢幕模式");
+        svg.innerHTML = `
+          <path d="M4 14h6v6"></path>
+          <path d="M20 10h-6V4"></path>
+          <path d="M14 10l7-7"></path>
+          <path d="M3 21l7-7"></path>
+        `;
+      } else {
+        btn.setAttribute("data-tooltip", "切換全螢幕模式");
+        btn.setAttribute("aria-label", "切換全螢幕模式");
+        svg.innerHTML = `
+          <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+          <path d="M21 8V5a2 2 0 0 0-2-2h-3"></path>
+          <path d="M3 16v3a2 2 0 0 0 2 2h3"></path>
+          <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+        `;
+      }
+    }
+
+    function toggleFullscreenMode() {
+      playClickSound();
+      const docEl = document.documentElement;
+      const isNativeFull = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      const isPseudoFull = document.body.classList.contains("pseudo-fullscreen");
+
+      if (isNativeFull) {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        document.body.classList.remove("pseudo-fullscreen");
+        updateFullscreenButtonUI(false);
+        return;
+      }
+
+      if (isPseudoFull) {
+        document.body.classList.remove("pseudo-fullscreen");
+        updateFullscreenButtonUI(false);
+        return;
+      }
+
+      // 嘗試原生 Fullscreen API，若受限於 iPad Safari 或 iFrame 則自動啟用 Pseudo-Fullscreen
+      const req = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+      if (req) {
+        try {
+          const p = req.call(docEl);
+          if (p && typeof p.then === "function") {
+            p.then(() => {
+              updateFullscreenButtonUI(true);
+            }).catch(() => {
+              document.body.classList.add("pseudo-fullscreen");
+              updateFullscreenButtonUI(true);
+            });
+          } else {
+            updateFullscreenButtonUI(true);
+          }
+        } catch (e) {
+          document.body.classList.add("pseudo-fullscreen");
+          updateFullscreenButtonUI(true);
+        }
+      } else {
+        document.body.classList.add("pseudo-fullscreen");
+        updateFullscreenButtonUI(true);
+      }
+    }
+
+    document.addEventListener("fullscreenchange", () => {
+      const isFull = Boolean(document.fullscreenElement);
+      if (!isFull) document.body.classList.remove("pseudo-fullscreen");
+      updateFullscreenButtonUI(isFull);
+    });
+
+    function getStudentTaskStats(seat) {
+      const rec = ensureStudentRecord(seat);
+      const stars = Object.values(rec.detective).filter(m => m.unlocked).length;
+      const detDone = stars === 3;
+      const swDone = Boolean(rec.stopwatch.saved);
+      const toyDone = Boolean(rec.toy.saved);
+      const completedCount = (detDone ? 1 : 0) + (swDone ? 1 : 0) + (toyDone ? 1 : 0);
+      return { stars, detDone, swDone, toyDone, completedCount };
+    }
+
+    function stopAllRunningTimersOnSwitch() {
+      // 切換座號前先暫停正在倒數的計時器
+      Object.keys(observeTimers).forEach(id => {
+        clearInterval(observeTimers[id]);
+        delete observeTimers[id];
+      });
+      if (swIntervalId) {
+        clearInterval(swIntervalId);
+        swIntervalId = null;
+        swIsRunning = false;
+      }
+    }
+
+    function switchToStudentSeat(targetSeat, announce = true) {
+      saveState();
+      stopAllRunningTimersOnSwitch();
+      appState.currentSeat = targetSeat;
+      ensureStudentRecord(targetSeat);
+      saveState();
+      renderAllUI();
+      if (announce) {
+        playSwitchSound();
+        showSwitchToast(`✅ 已切換為 ${targetSeat} 探險中！`);
+      }
+    }
+
+    function renderGroupSeatBar() {
+      document.getElementById("displayClassBadge").textContent = `🏫 ${appState.className}`;
+      const grid = document.getElementById("groupSeatGrid");
+      grid.innerHTML = "";
+
+      appState.groupSeats.forEach(seat => {
+        const isCurrent = seat === appState.currentSeat;
+        const stats = getStudentTaskStats(seat);
+        const isAllDone = stats.completedCount === 3;
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `seat-card-btn ${isCurrent ? "active" : ""}`;
+        btn.innerHTML = `
+          <div class="seat-card-top">
+            <span class="seat-number-text">${seat}</span>
+            <span class="seat-progress-badge ${isAllDone ? "done" : ""}">
+              ${isAllDone ? "🏆 完成" : `${stats.completedCount}/3`}
+            </span>
+          </div>
+          <div class="seat-status-line">
+            ${isCurrent ? "👉 目前操作中" : "點擊切換成此座號"}
+          </div>
+        `;
+        btn.addEventListener("click", () => {
+          if (seat !== appState.currentSeat) {
+            switchToStudentSeat(seat, true);
+          } else {
+            playClickSound();
+          }
+        });
+        grid.appendChild(btn);
+      });
+
+      const whoLabel = `👉 目前：${appState.currentSeat}`;
+      document.getElementById("detectiveCurrentWho").textContent = whoLabel;
+      document.getElementById("stopwatchCurrentWho").textContent = whoLabel;
+      document.getElementById("toyCurrentWho").textContent = whoLabel;
+      document.getElementById("reportCurrentWho").textContent = whoLabel;
+    }
+
+    function openHandoverModal() {
+      saveState();
+      stopAllRunningTimersOnSwitch();
+      playSwitchSound();
+
+      const cur = appState.currentSeat;
+      document.getElementById("handoverTitle").textContent = `🔒 ${cur} 的探險紀錄已安全存檔！`;
+      document.getElementById("handoverDesc").textContent =
+        "請把 iPad 交給下一位組員，並請本人點擊自己的座號開始任務：";
+
+      const grid = document.getElementById("handoverSeatGrid");
+      grid.innerHTML = "";
+      appState.groupSeats.forEach(seat => {
+        const stats = getStudentTaskStats(seat);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "handover-seat-btn";
+        btn.innerHTML = `
+          <span>🙋 我是 ${seat}</span>
+          <span style="font-size:0.85rem; font-weight:700; margin-top:4px;">
+            目前進度：${stats.completedCount}/3（⭐${stats.stars}）
+          </span>
+        `;
+        btn.addEventListener("click", () => {
+          closeModal("handoverModal");
+          switchToStudentSeat(seat, true);
+        });
+        grid.appendChild(btn);
+      });
+
+      openModal("handoverModal");
+    }
+
+    /* ==========================================================================
+       七、分頁 1：動物偵探社渲染與四階段防偷看邏輯
+       ========================================================================== */
+    function renderDetectiveTab() {
+      const rec = getCurrentRecord();
+      const container = document.getElementById("detectiveCardsContainer");
+      container.innerHTML = "";
+
+      DETECTIVE_MISSIONS.forEach(mission => {
+        const st = rec.detective[mission.id];
+        const card = document.createElement("div");
+        card.className = `mission-card ${st.unlocked ? "completed-card" : ""}`;
+
+        // 1. 已完成防誤改保護鎖（若已解鎖揭曉，預設顯示保護鎖，可手動點解鎖重做）
+        const isEditLocked = st.unlocked && !st.tempEditUnlocked;
+        let lockBannerHtml = "";
+        if (st.unlocked) {
+          lockBannerHtml = `
+            <div class="anti-edit-lock-bar">
+              <span>🔒 ${appState.currentSeat} 已完成本關卡紀錄（獲得 ⭐ 1 顆星星）</span>
+              ${isEditLocked
+                ? `<button type="button" class="unlock-edit-btn" data-det-reopen="${mission.id}">🔓 若需重做請點此解鎖修改</button>`
+                : `<span style="font-size:0.86rem;">✏️ 已開啟修改模式</span>`
+              }
+            </div>
+          `;
+        }
+
+        // 2. 步驟 1：直覺猜測鎖定
+        const step1Html = `
+          <div class="step-box">
+            <div class="step-title">步驟 1：先憑直覺猜一猜並鎖定</div>
+            <div class="guess-btn-row">
+              <button type="button" class="choice-btn ${st.guess === "true" ? "selected" : ""}"
+                      data-det-guess="${mission.id}:true" ${st.lockedGuess ? "disabled" : ""}>
+                ⭕ 我覺得是真的
+              </button>
+              <button type="button" class="choice-btn ${st.guess === "false" ? "selected" : ""}"
+                      data-det-guess="${mission.id}:false" ${st.lockedGuess ? "disabled" : ""}>
+                ❌ 我覺得是假的
+              </button>
+            </div>
+            ${st.lockedGuess
+              ? `<div style="font-weight:900; color:var(--forest-dark);">✅ 已鎖定猜測：${st.guess === "true" ? "⭕ 我覺得是真的" : "❌ 我覺得是假的"}</div>`
+              : `<button type="button" class="primary-action-btn" data-det-lock-guess="${mission.id}" ${!st.guess ? "disabled" : ""}>
+                   🔒 鎖定我的猜測
+                 </button>`
+            }
+          </div>
+        `;
+
+        // 3. 步驟 2：現場觀察 15 秒倒數（鎖定猜測後才顯示）
+        let step2Html = "";
+        if (st.lockedGuess) {
+          const isCounting = Boolean(observeTimers[mission.id]);
+          const leftSec = observeCountdownLeft[mission.id] !== undefined ? observeCountdownLeft[mission.id] : OBSERVE_SECONDS;
+          const pct = st.observed ? 100 : Math.round(((OBSERVE_SECONDS - leftSec) / OBSERVE_SECONDS) * 100);
+
+          step2Html = `
+            <div class="step-box">
+              <div class="step-title">步驟 2：眼睛盯著動物觀察 15 秒</div>
+              ${st.observed
+                ? `<div style="font-weight:900; color:var(--forest-dark);">🎉 已完成 15 秒現場觀察！請繼續完成步驟 3。</div>`
+                : `<button type="button" class="handover-trigger-btn" style="width:100%;" data-det-observe="${mission.id}" ${isCounting ? "disabled" : ""}>
+                     ${isCounting ? `⏳ 正在專心觀察中... 剩餘 ${leftSec} 秒` : "👁️ 開始現場觀察 15 秒"}
+                   </button>`
+              }
+              <div class="observe-timer-bar">
+                <div class="observe-timer-fill" id="obs-fill-${mission.id}" style="width:${pct}%;"></div>
+              </div>
+            </div>
+          `;
+        }
+
+        // 4. 步驟 3：回報目擊證據（15 秒觀察完成後才展開，防偷看！）
+        let step3Html = "";
+        if (st.lockedGuess && st.observed) {
+          const optsHtml = mission.evidenceOptions.map(opt => `
+            <button type="button" class="evidence-btn ${st.evidence === opt ? "selected" : ""}"
+                    data-det-ev="${mission.id}" data-ev-val="${opt}">
+              ${st.evidence === opt ? "🔘" : "⚪"} ${opt}
+            </button>
+          `).join("");
+
+          step3Html = `
+            <div class="step-box">
+              <div class="step-title">步驟 3：勾選你在現場看到的證據</div>
+              <div class="evidence-options">${optsHtml}</div>
+            </div>
+          `;
+        }
+
+        // 5. 步驟 4：現場解鎖揭曉真相（勾選證據後才顯示）
+        let step4Html = "";
+        if (st.lockedGuess && st.observed && st.evidence) {
+          if (st.unlocked) {
+            const guessRight = st.guess === mission.correctGuess;
+            step4Html = `
+              <div class="truth-reveal-box">
+                <h4>${mission.truthTitle}</h4>
+                <p style="margin: 0 0 8px;">${mission.truthDesc}</p>
+                <div style="font-weight:900; color:var(--orange-dark);">
+                  🎯 你的直覺猜測：${guessRight ? "神準猜對了！" : "差一點點，現場觀察讓你發現真相囉！"}
+                </div>
+              </div>
+            `;
+          } else if (!appState.teacherSettings.strictMode) {
+            // 自主模式：直接顯示按鈕揭曉
+            step4Html = `
+              <div class="step-box">
+                <div class="step-title">步驟 4：揭曉動物真相</div>
+                <button type="button" class="primary-action-btn" data-det-auto-unlock="${mission.id}">
+                  ✨ 確認送出並揭曉真相
+                </button>
+              </div>
+            `;
+          } else {
+            // 嚴格模式：需輸入現場解鎖碼
+            step4Html = `
+              <div class="step-box">
+                <div class="step-title">步驟 4：請老師或小組長輸入「4位數現場解鎖碼」</div>
+                <div class="pin-unlock-row">
+                  <input type="password" inputmode="numeric" maxlength="6" class="pin-input"
+                         id="pin-input-${mission.id}" placeholder="••••">
+                  <button type="button" class="primary-action-btn" style="width:auto;" data-det-pin-unlock="${mission.id}">
+                    🔑 驗證解鎖真相
+                  </button>
+                </div>
+                <div id="pin-msg-${mission.id}" style="color:var(--red-main); font-weight:800; margin-top:6px;"></div>
+              </div>
+            `;
+          }
+        }
+
+        card.innerHTML = `
+          ${lockBannerHtml}
+          <div class="locked-body-wrapper ${isEditLocked ? "is-locked" : ""}">
+            <div class="detective-header">
+              <span class="zone-tag">${mission.zone}</span>
+              <span class="star-status">${st.unlocked ? "⭐ 已破案獲得星星" : "☆ 尚未破案"}</span>
+            </div>
+            <h3 class="myth-question">${mission.title}</h3>
+            <p style="margin-top:0; color:var(--text-muted); font-weight:700;">${mission.prompt}</p>
+            ${step1Html}
+            ${step2Html}
+            ${step3Html}
+            ${step4Html}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // 偵探社事件委派
+    document.getElementById("detectiveCardsContainer").addEventListener("click", e => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const rec = getCurrentRecord();
+
+      // 重開修改
+      if (btn.dataset.detReopen) {
+        const id = btn.dataset.detReopen;
+        rec.detective[id].tempEditUnlocked = true;
+        playClickSound();
+        renderDetectiveTab();
+        return;
+      }
+
+      // 選擇直覺猜測
+      if (btn.dataset.detGuess) {
+        const [id, val] = btn.dataset.detGuess.split(":");
+        if (rec.detective[id].lockedGuess) return;
+        rec.detective[id].guess = val;
+        playClickSound();
+        saveState();
+        renderDetectiveTab();
+        return;
+      }
+
+      // 鎖定直覺猜測
+      if (btn.dataset.detLockGuess) {
+        const id = btn.dataset.detLockGuess;
+        if (!rec.detective[id].guess) return;
+        rec.detective[id].lockedGuess = true;
+        playClickSound();
+        saveState();
+        renderDetectiveTab();
+        return;
+      }
+
+      // 啟動 15 秒現場觀察倒數
+      if (btn.dataset.detObserve) {
+        const id = btn.dataset.detObserve;
+        if (observeTimers[id] || rec.detective[id].observed) return;
+        playClickSound();
+        observeCountdownLeft[id] = OBSERVE_SECONDS;
+        renderDetectiveTab();
+
+        observeTimers[id] = setInterval(() => {
+          observeCountdownLeft[id]--;
+          if (observeCountdownLeft[id] > 0) {
+            playTone(880, 0.04, "sine", 0.08);
+            const targetBtn = document.querySelector(`[data-det-observe="${id}"]`);
+            const targetFill = document.getElementById(`obs-fill-${id}`);
+            if (targetBtn) {
+              targetBtn.textContent = `⏳ 正在專心觀察中... 剩餘 ${observeCountdownLeft[id]} 秒`;
+            }
+            if (targetFill) {
+              const pct = Math.round(((OBSERVE_SECONDS - observeCountdownLeft[id]) / OBSERVE_SECONDS) * 100);
+              targetFill.style.width = `${pct}%`;
+            }
+          } else {
+            clearInterval(observeTimers[id]);
+            delete observeTimers[id];
+            delete observeCountdownLeft[id];
+            rec.detective[id].observed = true;
+            playSwitchSound();
+            saveState();
+            renderDetectiveTab();
+          }
+        }, 1000);
+        return;
+      }
+
+      // 勾選目擊證據
+      if (btn.dataset.detEv) {
+        const id = btn.dataset.detEv;
+        rec.detective[id].evidence = btn.dataset.evVal;
+        playClickSound();
+        saveState();
+        renderDetectiveTab();
+        return;
+      }
+
+      // 自主模式解鎖
+      if (btn.dataset.detAutoUnlock) {
+        const id = btn.dataset.detAutoUnlock;
+        rec.detective[id].unlocked = true;
+        rec.detective[id].tempEditUnlocked = false;
+        playSuccessFanfare();
+        saveState();
+        renderAllUI();
+        return;
+      }
+
+      // 嚴格模式 PIN 驗證解鎖
+      if (btn.dataset.detPinUnlock) {
+        const id = btn.dataset.detPinUnlock;
+        const inputEl = document.getElementById(`pin-input-${id}`);
+        const msgEl = document.getElementById(`pin-msg-${id}`);
+        const val = (inputEl ? inputEl.value : "").trim();
+        if (val === appState.teacherSettings.unlockPin) {
+          rec.detective[id].unlocked = true;
+          rec.detective[id].tempEditUnlocked = false;
+          playSuccessFanfare();
+          saveState();
+          renderAllUI();
+        } else {
+          playTone(220, 0.2, "sawtooth", 0.16);
+          if (msgEl) msgEl.textContent = "❌ 解鎖碼不正確，請再向老師或小組長確認喔！";
+        }
+      }
+    });
+
+    /* ==========================================================================
+       八、分頁 2：行為碼錶手（真實 3 分鐘計時 + 正字 SVG + 比例圖）
+       ========================================================================== */
+    function formatSecondsMMSS(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function renderStopwatchTab() {
+      const rec = getCurrentRecord();
+      const sw = rec.stopwatch;
+
+      // 防誤改保護鎖
+      const lockBar = document.getElementById("stopwatchLockBar");
+      const wrapper = document.getElementById("stopwatchBodyWrapper");
+      const card = document.getElementById("stopwatchMissionCard");
+      if (sw.saved && sw.editLocked) {
+        lockBar.style.display = "flex";
+        document.getElementById("stopwatchLockText").textContent =
+          `🔒 ${appState.currentSeat} 已完成本關卡紀錄（${sw.animal}）`;
+        wrapper.classList.add("is-locked");
+        card.classList.add("completed-card");
+      } else {
+        lockBar.style.display = "none";
+        wrapper.classList.remove("is-locked");
+        card.classList.toggle("completed-card", sw.saved);
+      }
+
+      document.getElementById("swAnimalSelect").value = sw.animal || "台灣黑熊";
+      document.getElementById("swCustomAnimal").value = sw.customAnimal || "";
+      document.getElementById("swTimerDigits").textContent = formatSecondsMMSS(sw.remainingSeconds);
+
+      const btnStart = document.getElementById("btnSwStart");
+      const btnPause = document.getElementById("btnSwPause");
+      if (swIsRunning) {
+        btnStart.disabled = true;
+        btnPause.disabled = false;
+        document.getElementById("swTimerStatus").textContent = "⏱️ 計時進行中！動物每做一次動作就點下面按鈕";
+      } else {
+        btnStart.disabled = sw.remainingSeconds <= 0;
+        btnPause.disabled = true;
+        document.getElementById("swTimerStatus").textContent =
+          sw.remainingSeconds <= 0
+            ? "🎉 3 分鐘計時完成！請按下方「儲存觀察紀錄」"
+            : "按下「開始 3 分鐘計時」後，專心觀察動物動作";
+      }
+
+      const behKeys = ["walk", "eat", "rest", "look"];
+      const total = behKeys.reduce((sum, k) => sum + (sw.counts[k] || 0), 0);
+      document.getElementById("swTotalCount").textContent = total;
+
+      behKeys.forEach(k => {
+        const cnt = sw.counts[k] || 0;
+        document.getElementById(`count-${k}`).textContent = `${cnt} 次`;
+        document.getElementById(`zheng-${k}`).innerHTML = buildZhengTallyHtml(cnt);
+        const pct = total > 0 ? Math.round((cnt / total) * 100) : 0;
+        document.getElementById(`bar-${k}`).style.width = `${pct}%`;
+        document.getElementById(`pct-${k}`).textContent = `${pct}%`;
+      });
+    }
+
+    document.getElementById("swAnimalSelect").addEventListener("change", e => {
+      getCurrentRecord().stopwatch.animal = e.target.value;
+      saveState();
+    });
+
+    document.getElementById("swCustomAnimal").addEventListener("input", e => {
+      getCurrentRecord().stopwatch.customAnimal = e.target.value;
+      saveState();
+    });
+
+    document.getElementById("btnSwStart").addEventListener("click", () => {
+      if (swIsRunning) return;
+      const sw = getCurrentRecord().stopwatch;
+      if (sw.remainingSeconds <= 0) return;
+
+      playClickSound();
+      swIsRunning = true;
+      renderStopwatchTab();
+
+      swIntervalId = setInterval(() => {
+        const curSw = getCurrentRecord().stopwatch;
+        if (curSw.remainingSeconds > 0) {
+          curSw.remainingSeconds--;
+          document.getElementById("swTimerDigits").textContent = formatSecondsMMSS(curSw.remainingSeconds);
+          if (curSw.remainingSeconds <= 5 && curSw.remainingSeconds > 0) {
+            playTone(780, 0.08, "sine", 0.14);
+          }
+          if (curSw.remainingSeconds === 0) {
+            clearInterval(swIntervalId);
+            swIntervalId = null;
+            swIsRunning = false;
+            playSuccessFanfare();
+            saveState();
+            renderStopwatchTab();
+            showSwitchToast("⏰ 3 分鐘計時結束！記得按「儲存觀察紀錄」喔！");
+          }
+        }
+      }, 1000);
+    });
+
+    document.getElementById("btnSwPause").addEventListener("click", () => {
+      if (!swIsRunning) return;
+      clearInterval(swIntervalId);
+      swIntervalId = null;
+      swIsRunning = false;
+      playClickSound();
+      saveState();
+      renderStopwatchTab();
+    });
+
+    document.getElementById("btnSwReset").addEventListener("click", () => {
+      if (swIntervalId) {
+        clearInterval(swIntervalId);
+        swIntervalId = null;
+      }
+      swIsRunning = false;
+      const sw = getCurrentRecord().stopwatch;
+      sw.remainingSeconds = STOPWATCH_TOTAL_SECONDS;
+      sw.counts = { walk: 0, eat: 0, rest: 0, look: 0 };
+      playClickSound();
+      saveState();
+      renderStopwatchTab();
+    });
+
+    // 行為計數按鈕 (+1 與 -1)
+    document.getElementById("stopwatchBodyWrapper").addEventListener("click", e => {
+      const tapBtn = e.target.closest("[data-beh]");
+      if (tapBtn) {
+        const k = tapBtn.dataset.beh;
+        const sw = getCurrentRecord().stopwatch;
+        sw.counts[k] = (sw.counts[k] || 0) + 1;
+        playTone(660, 0.06, "triangle", 0.16);
+        saveState();
+        renderStopwatchTab();
+        return;
+      }
+
+      const minusBtn = e.target.closest("[data-minus]");
+      if (minusBtn) {
+        const k = minusBtn.dataset.minus;
+        const sw = getCurrentRecord().stopwatch;
+        if (sw.counts[k] > 0) {
+          sw.counts[k]--;
+          playTone(440, 0.06, "sine", 0.12);
+          saveState();
+          renderStopwatchTab();
+        }
+      }
+    });
+
+    document.getElementById("btnSaveStopwatch").addEventListener("click", () => {
+      const sw = getCurrentRecord().stopwatch;
+      const total = Object.values(sw.counts).reduce((a, b) => a + b, 0);
+      if (total === 0) {
+        showSwitchToast("⚠️ 請至少記錄 1 次動物動作再儲存喔！");
+        playTone(250, 0.18, "sawtooth", 0.14);
+        return;
+      }
+      if (swIntervalId) {
+        clearInterval(swIntervalId);
+        swIntervalId = null;
+        swIsRunning = false;
+      }
+      sw.saved = true;
+      sw.editLocked = true;
+      playSuccessFanfare();
+      saveState();
+      renderAllUI();
+      showSwitchToast(`✅ ${appState.currentSeat} 的行為碼錶紀錄已儲存並鎖定！`);
+    });
+
+    document.getElementById("btnUnlockStopwatch").addEventListener("click", () => {
+      getCurrentRecord().stopwatch.editLocked = false;
+      playClickSound();
+      saveState();
+      renderStopwatchTab();
+    });
+
+    /* ==========================================================================
+       九、分頁 3：玩具設計師（完全由學生自行輸入筆記，無任何短語標籤按鈕）
+       ========================================================================== */
+    function updateToyCharCounter() {
+      const toy = getCurrentRecord().toy;
+      const total = (toy.animalZone || "").length +
+                    (toy.whatText || "").length +
+                    (toy.howText || "").length +
+                    (toy.designText || "").length;
+      document.getElementById("toyTotalChars").textContent = total;
+    }
+
+    function renderToyTab() {
+      const rec = getCurrentRecord();
+      const toy = rec.toy;
+
+      // 防誤改保護鎖
+      const lockBar = document.getElementById("toyLockBar");
+      const wrapper = document.getElementById("toyBodyWrapper");
+      const card = document.getElementById("toyMissionCard");
+      if (toy.saved && toy.editLocked) {
+        lockBar.style.display = "flex";
+        document.getElementById("toyLockText").textContent =
+          `🔒 ${appState.currentSeat} 已完成玩具設計筆記`;
+        wrapper.classList.add("is-locked");
+        card.classList.add("completed-card");
+      } else {
+        lockBar.style.display = "none";
+        wrapper.classList.remove("is-locked");
+        card.classList.toggle("completed-card", toy.saved);
+      }
+
+      document.getElementById("toyAnimalZone").value = toy.animalZone || "";
+      document.getElementById("toyInputWhat").value = toy.whatText || "";
+      document.getElementById("toyInputHow").value = toy.howText || "";
+      document.getElementById("toyInputDesign").value = toy.designText || "";
+
+      document.querySelectorAll("#bodypartGrid .bodypart-btn").forEach(btn => {
+        const part = btn.dataset.part;
+        btn.classList.toggle("selected", toy.bodyParts.includes(part));
+      });
+
+      updateToyCharCounter();
+    }
+
+    document.getElementById("bodypartGrid").addEventListener("click", e => {
+      const btn = e.target.closest(".bodypart-btn");
+      if (!btn) return;
+      const part = btn.dataset.part;
+      const toy = getCurrentRecord().toy;
+      const idx = toy.bodyParts.indexOf(part);
+      if (idx >= 0) toy.bodyParts.splice(idx, 1);
+      else toy.bodyParts.push(part);
+      playClickSound();
+      saveState();
+      renderToyTab();
+    });
+
+    ["toyAnimalZone", "toyInputWhat", "toyInputHow", "toyInputDesign"].forEach(id => {
+      document.getElementById(id).addEventListener("input", e => {
+        const toy = getCurrentRecord().toy;
+        if (id === "toyAnimalZone") toy.animalZone = e.target.value;
+        if (id === "toyInputWhat") toy.whatText = e.target.value;
+        if (id === "toyInputHow") toy.howText = e.target.value;
+        if (id === "toyInputDesign") toy.designText = e.target.value;
+        updateToyCharCounter();
+        saveState();
+      });
+    });
+
+    document.getElementById("btnSaveToy").addEventListener("click", () => {
+      const toy = getCurrentRecord().toy;
+      const hasAnyNote = (toy.whatText || "").trim().length > 0 ||
+                         (toy.howText || "").trim().length > 0 ||
+                         (toy.designText || "").trim().length > 0;
+      if (!hasAnyNote) {
+        showSwitchToast("⚠️ 請先在格子裡輸入你的玩具觀察筆記再儲存喔！");
+        playTone(250, 0.18, "sawtooth", 0.14);
+        return;
+      }
+      toy.saved = true;
+      toy.editLocked = true;
+      playSuccessFanfare();
+      saveState();
+      renderAllUI();
+      showSwitchToast(`✅ ${appState.currentSeat} 的玩具設計筆記已儲存並鎖定！`);
+    });
+
+    document.getElementById("btnUnlockToy").addEventListener("click", () => {
+      getCurrentRecord().toy.editLocked = false;
+      playClickSound();
+      saveState();
+      renderToyTab();
+    });
+
+    /* ==========================================================================
+       十、分頁 4：探險戰報、高解析度 PNG 結業證書與 UTF-8 BOM CSV 匯出
+       ========================================================================== */
+    function renderOverviewAndCertificate() {
+      // 1. 渲染小組 4 人對照表
+      const tbody = document.getElementById("groupOverviewTbody");
+      tbody.innerHTML = "";
+
+      appState.groupSeats.forEach(seat => {
+        const rec = ensureStudentRecord(seat);
+        const stats = getStudentTaskStats(seat);
+        const swTotal = Object.values(rec.stopwatch.counts).reduce((a, b) => a + b, 0);
+        const isCurrent = seat === appState.currentSeat;
+
+        const tr = document.createElement("tr");
+        if (isCurrent) tr.className = "active-row";
+        tr.style.cursor = "pointer";
+        tr.innerHTML = `
+          <td><strong>${seat} ${isCurrent ? "👈" : ""}</strong></td>
+          <td>${"⭐".repeat(stats.stars)}${"☆".repeat(3 - stats.stars)} (${stats.stars}/3)</td>
+          <td>${stats.swDone ? `✅ 已完成 (${swTotal}次)` : "⏳ 進行中"}</td>
+          <td>${stats.toyDone ? "✅ 已完成" : "⏳ 進行中"}</td>
+          <td><strong>${stats.completedCount === 3 ? "🏆 全部完成" : `${stats.completedCount}/3`}</strong></td>
+        `;
+        tr.addEventListener("click", () => {
+          if (seat !== appState.currentSeat) switchToStudentSeat(seat, true);
+        });
+        tbody.appendChild(tr);
+      });
+
+      // 2. 繪製目前學生高解析度 PNG 結業證書
+      drawCertificateCanvas();
+    }
+
+    function drawCertificateCanvas() {
+      const canvas = document.getElementById("certCanvas");
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width;
+      const H = canvas.height;
+      const seat = appState.currentSeat;
+      const rec = getCurrentRecord();
+      const stats = getStudentTaskStats(seat);
+
+      // 背景底色
+      ctx.fillStyle = "#FFFDF7";
+      ctx.fillRect(0, 0, W, H);
+
+      // 雙層森林綠與亮橘外框
+      ctx.strokeStyle = "#14532D";
+      ctx.lineWidth = 16;
+      ctx.strokeRect(20, 20, W - 40, H - 40);
+
+      ctx.strokeStyle = "#EA580C";
+      ctx.lineWidth = 5;
+      ctx.strokeRect(36, 36, W - 72, H - 72);
+
+      // 頂部橫幅
+      ctx.fillStyle = "#15803D";
+      ctx.fillRect(56, 56, W - 112, 86);
+
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "900 34px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("🦁 台北市立動物園・小小探險家結業證書", W / 2, 112);
+
+      // 學生班級座號
+      ctx.fillStyle = "#1E293B";
+      ctx.font = "900 42px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`${appState.className}   ${seat}`, W / 2, 212);
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "700 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText("完成園區現場觀察、動物行為量化統計與保育員創意任務", W / 2, 256);
+
+      // 三項任務勳章卡
+      const badges = [
+        { title: "🔍 動物偵探社", val: `獲得 ${stats.stars} / 3 顆星`, done: stats.detDone },
+        { title: "⏱️ 行為碼錶手", val: stats.swDone ? `已記錄 ${rec.stopwatch.animal}` : "尚未完成存檔", done: stats.swDone },
+        { title: "🧸 玩具設計師", val: stats.toyDone ? "已完成創意筆記" : "尚未完成存檔", done: stats.toyDone }
+      ];
+
+      badges.forEach((b, idx) => {
+        const bx = 74 + idx * 256;
+        const by = 295;
+        const bw = 236;
+        const bh = 148;
+
+        ctx.fillStyle = b.done ? "#DCFCE7" : "#F1F5F9";
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = b.done ? "#15803D" : "#94A3B8";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(bx, by, bw, bh);
+
+        ctx.fillStyle = "#1E293B";
+        ctx.font = "900 22px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText(b.title, bx + bw / 2, by + 48);
+
+        ctx.fillStyle = b.done ? "#14532D" : "#64748B";
+        ctx.font = "800 19px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText(b.val, bx + bw / 2, by + 92);
+
+        ctx.font = "900 20px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+        ctx.fillText(b.done ? "✅ 已達成" : "⏳ 繼續加油", bx + bw / 2, by + 128);
+      });
+
+      // 底部日期與核發單位
+      const now = new Date();
+      const dateStr = `${now.getFullYear()} 年 ${now.getMonth() + 1} 月 ${now.getDate()} 日`;
+      ctx.fillStyle = "#C2410C";
+      ctx.font = "900 24px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`總任務完成度：${stats.completedCount} / 3 項`, W / 2, 495);
+
+      ctx.fillStyle = "#475569";
+      ctx.font = "700 19px 'PingFang TC', 'Microsoft JhengHei', sans-serif";
+      ctx.fillText(`台北市立動物園校外教學探險任務站 v1.4  •  ${dateStr}`, W / 2, 545);
+    }
+
+    document.getElementById("btnDownloadCert").addEventListener("click", () => {
+      drawCertificateCanvas();
+      const canvas = document.getElementById("certCanvas");
+      const dataUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `動物園探險證書_${appState.className}_${appState.currentSeat}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      playSuccessFanfare();
+      showSwitchToast("⬇️ 結業證書 PNG 已開始下載！");
+    });
+
+    document.getElementById("btnPreviewCertModal").addEventListener("click", () => {
+      drawCertificateCanvas();
+      const canvas = document.getElementById("certCanvas");
+      document.getElementById("certPreviewImg").src = canvas.toDataURL("image/png");
+      playClickSound();
+      openModal("certPreviewModal");
+    });
+
+    function exportAllRecordsToCsv() {
+      const headers = [
+        "班級", "座號",
+        "偵探社星數", "河馬題猜測", "河馬題證據", "企鵝題猜測", "企鵝題證據", "穿山甲題猜測", "穿山甲題證據",
+        "行為碼錶動物", "走來走去次數", "低頭吃東西次數", "趴著休息次數", "東張西望次數", "行為碼錶是否存檔",
+        "玩具觀察動物與展區", "碰玩具部位", "玩具外觀筆記", "動物玩法筆記", "新玩具設計筆記", "玩具筆記是否存檔"
+      ];
+
+      const escapeCsv = val => {
+        const str = String(val === undefined || val === null ? "" : val).replace(/"/g, '""');
+        return `"${str}"`;
+      };
+
+      const allSeats = Array.from(new Set([...appState.groupSeats, ...Object.keys(appState.students)]));
+      const rows = [headers.map(escapeCsv).join(",")];
+
+      allSeats.forEach(seat => {
+        const rec = ensureStudentRecord(seat);
+        const stats = getStudentTaskStats(seat);
+        const d = rec.detective;
+        const sw = rec.stopwatch;
+        const toy = rec.toy;
+        const animalLabel = sw.customAnimal ? `${sw.animal}(${sw.customAnimal})` : sw.animal;
+
+        const row = [
+          appState.className,
+          seat,
+          `${stats.stars}/3`,
+          d.hippo.guess,
+          d.hippo.evidence,
+          d.penguin.guess,
+          d.penguin.evidence,
+          d.pangolin.guess,
+          d.pangolin.evidence,
+          animalLabel,
+          sw.counts.walk || 0,
+          sw.counts.eat || 0,
+          sw.counts.rest || 0,
+          sw.counts.look || 0,
+          sw.saved ? "是" : "否",
+          toy.animalZone,
+          (toy.bodyParts || []).join("、"),
+          toy.whatText,
+          toy.howText,
+          toy.designText,
+          toy.saved ? "是" : "否"
+        ];
+        rows.push(row.map(escapeCsv).join(","));
+      });
+
+      // 附加 UTF-8 BOM (\uFEFF) 確保電腦 Excel 開啟中文不亂碼
+      const csvContent = "\uFEFF" + rows.join("\r\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `台北市立動物園探險戰報_${appState.className}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      playSuccessFanfare();
+      showSwitchToast("📊 全機探險紀錄 CSV 已匯出！");
+    }
+
+    document.getElementById("btnExportCsv").addEventListener("click", exportAllRecordsToCsv);
+
+    /* ==========================================================================
+       十一、彈窗管理、QR Code 分享、小組設定與教師管理中心
+       ========================================================================== */
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add("open");
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove("open");
+    }
+
+    document.querySelectorAll("[data-close-modal]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        playClickSound();
+        closeModal(btn.dataset.closeModal);
+      });
+    });
+
+    // 點擊彈窗背景關閉（交接遮罩除外，交接遮罩強制由下一位組員點擊座號解鎖）
+    document.querySelectorAll(".modal-backdrop").forEach(backdrop => {
+      if (backdrop.id === "handoverModal") return;
+      backdrop.addEventListener("click", e => {
+        if (e.target === backdrop) {
+          closeModal(backdrop.id);
+        }
+      });
+    });
+
+    // 1. 右上方純圖示按鈕 1：QR Code 掃碼連結
+    function getDefaultShareUrl() {
+      const href = window.location.href || "";
+      if (!href || href.startsWith("about:") || href.startsWith("blob:")) {
+        return "https://www.zoo.gov.taipei/";
+      }
+      return href;
+    }
+
+    document.getElementById("btnOpenQr").addEventListener("click", () => {
+      playClickSound();
+      const input = document.getElementById("qrUrlInput");
+      if (!input.value) input.value = getDefaultShareUrl();
+      OfflineQR.renderToCanvas(document.getElementById("qrCanvas"), input.value);
+      openModal("qrModal");
+    });
+
+    document.getElementById("qrUrlInput").addEventListener("input", e => {
+      OfflineQR.renderToCanvas(document.getElementById("qrCanvas"), e.target.value || "https://www.zoo.gov.taipei/");
+    });
+
+    document.getElementById("btnResetQrUrl").addEventListener("click", () => {
+      playClickSound();
+      const input = document.getElementById("qrUrlInput");
+      input.value = getDefaultShareUrl();
+      OfflineQR.renderToCanvas(document.getElementById("qrCanvas"), input.value);
+    });
+
+    document.getElementById("btnCopyQrUrl").addEventListener("click", () => {
+      const input = document.getElementById("qrUrlInput");
+      input.select();
+      try {
+        document.execCommand("copy");
+        playSwitchSound();
+        showSwitchToast("📋 連結已複製到剪貼簿！");
+      } catch (e) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(input.value).then(() => {
+            playSwitchSound();
+            showSwitchToast("📋 連結已複製到剪貼簿！");
+          });
+        }
+      }
+    });
+
+    // 2. 右上方純圖示按鈕 2：全螢幕功能鍵
+    document.getElementById("btnToggleFullscreen").addEventListener("click", toggleFullscreenMode);
+
+    // 3. 右上方純圖示按鈕 3：操作指引功能鍵
+    document.getElementById("btnOpenGuide").addEventListener("click", () => {
+      playClickSound();
+      openModal("guideModal");
+    });
+
+    // 4. 右上方純圖示按鈕 4：教師設定功能鍵
+    document.getElementById("btnOpenTeacher").addEventListener("click", () => {
+      playClickSound();
+      document.getElementById("teacherPwdInput").value = "";
+      document.getElementById("teacherAuthMsg").textContent = "";
+      document.getElementById("teacherAuthBox").style.display = "block";
+      document.getElementById("teacherControlPanel").style.display = "none";
+      document.getElementById("clearConfirmBox").style.display = "none";
+      openModal("teacherModal");
+    });
+
+    function verifyTeacherPassword() {
+      const pwd = document.getElementById("teacherPwdInput").value.trim();
+      if (pwd === TEACHER_MASTER_PWD) {
+        playSwitchSound();
+        document.getElementById("teacherAuthBox").style.display = "none";
+        document.getElementById("teacherControlPanel").style.display = "block";
+        document.getElementById("settingUnlockPin").value = appState.teacherSettings.unlockPin;
+        refreshTeacherModeButtons();
+      } else {
+        playTone(220, 0.2, "sawtooth", 0.16);
+        document.getElementById("teacherAuthMsg").textContent = "❌ 密碼錯誤（提示：預設密碼為 2026）";
+      }
+    }
+
+    document.getElementById("btnTeacherLogin").addEventListener("click", verifyTeacherPassword);
+    document.getElementById("teacherPwdInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") verifyTeacherPassword();
+    });
+
+    function refreshTeacherModeButtons() {
+      const strict = appState.teacherSettings.strictMode;
+      document.getElementById("btnModeStrict").classList.toggle("selected", strict);
+      document.getElementById("btnModeAuto").classList.toggle("selected", !strict);
+    }
+
+    document.getElementById("btnSaveTeacherPin").addEventListener("click", () => {
+      const val = document.getElementById("settingUnlockPin").value.trim();
+      if (!val) return;
+      appState.teacherSettings.unlockPin = val;
+      saveState();
+      playSwitchSound();
+      showSwitchToast(`✅ 現場解鎖碼已更新為：${val}`);
+    });
+
+    document.getElementById("btnModeStrict").addEventListener("click", () => {
+      appState.teacherSettings.strictMode = true;
+      saveState();
+      refreshTeacherModeButtons();
+      renderDetectiveTab();
+      playClickSound();
+    });
+
+    document.getElementById("btnModeAuto").addEventListener("click", () => {
+      appState.teacherSettings.strictMode = false;
+      saveState();
+      refreshTeacherModeButtons();
+      renderDetectiveTab();
+      playClickSound();
+    });
+
+    document.getElementById("btnTeacherUnlockAllCurrent").addEventListener("click", () => {
+      const rec = getCurrentRecord();
+      Object.keys(rec.detective).forEach(id => {
+        rec.detective[id].lockedGuess = true;
+        rec.detective[id].observed = true;
+        if (!rec.detective[id].guess) rec.detective[id].guess = "false";
+        if (!rec.detective[id].evidence) {
+          const m = DETECTIVE_MISSIONS.find(x => x.id === id);
+          rec.detective[id].evidence = m ? m.evidenceOptions[0] : "現場已觀察";
+        }
+        rec.detective[id].unlocked = true;
+        rec.detective[id].tempEditUnlocked = false;
+      });
+      saveState();
+      renderAllUI();
+      playSuccessFanfare();
+      showSwitchToast(`⭐ 已為 ${appState.currentSeat} 一鍵解鎖全部偵探題目！`);
+    });
+
+    document.getElementById("btnTeacherExportCsv").addEventListener("click", exportAllRecordsToCsv);
+
+    document.getElementById("btnAskClearCurrent").addEventListener("click", () => {
+      pendingClearMode = "current";
+      document.getElementById("clearConfirmText").textContent =
+        `確定要清除「${appState.currentSeat}」的所有探險紀錄嗎？清除後無法復原！`;
+      document.getElementById("clearConfirmBox").style.display = "block";
+    });
+
+    document.getElementById("btnAskClearAll").addEventListener("click", () => {
+      pendingClearMode = "all";
+      document.getElementById("clearConfirmText").textContent =
+        "⚠️ 確定要清除這台平板上「所有座號」的紀錄嗎？清除後無法復原！";
+      document.getElementById("clearConfirmBox").style.display = "block";
+    });
+
+    document.getElementById("btnCancelClearExecute").addEventListener("click", () => {
+      document.getElementById("clearConfirmBox").style.display = "none";
+      pendingClearMode = "";
+    });
+
+    document.getElementById("btnConfirmClearExecute").addEventListener("click", () => {
+      stopAllRunningTimersOnSwitch();
+      if (pendingClearMode === "current") {
+        appState.students[appState.currentSeat] = createEmptyStudentRecord();
+        showSwitchToast(`🗑️ 已清除 ${appState.currentSeat} 的紀錄`);
+      } else if (pendingClearMode === "all") {
+        appState.students = {};
+        appState.groupSeats.forEach(s => ensureStudentRecord(s));
+        showSwitchToast("🗑️ 已清除全機所有測試資料");
+      }
+      document.getElementById("clearConfirmBox").style.display = "none";
+      pendingClearMode = "";
+      saveState();
+      renderAllUI();
+      playClickSound();
+    });
+
+    // 小組 4 人班級與座號設定彈窗
+    document.getElementById("btnEditGroupSeats").addEventListener("click", () => {
+      playClickSound();
+      document.getElementById("inputClassName").value = appState.className;
+      document.getElementById("inputSeat1").value = appState.groupSeats[0] || "1號";
+      document.getElementById("inputSeat2").value = appState.groupSeats[1] || "2號";
+      document.getElementById("inputSeat3").value = appState.groupSeats[2] || "3號";
+      document.getElementById("inputSeat4").value = appState.groupSeats[3] || "4號";
+      openModal("groupSetupModal");
+    });
+
+    document.getElementById("btnSaveGroupSetup").addEventListener("click", () => {
+      const cls = document.getElementById("inputClassName").value.trim() || "5年13班";
+      const s1 = document.getElementById("inputSeat1").value.trim() || "1號";
+      const s2 = document.getElementById("inputSeat2").value.trim() || "2號";
+      const s3 = document.getElementById("inputSeat3").value.trim() || "3號";
+      const s4 = document.getElementById("inputSeat4").value.trim() || "4號";
+
+      const newSeats = [s1, s2, s3, s4];
+      appState.className = cls;
+      appState.groupSeats = newSeats;
+      newSeats.forEach(s => ensureStudentRecord(s));
+      if (!newSeats.includes(appState.currentSeat)) {
+        appState.currentSeat = newSeats[0];
+      }
+      saveState();
+      closeModal("groupSetupModal");
+      renderAllUI();
+      playSwitchSound();
+      showSwitchToast(`✅ 已更新為 ${cls}（${newSeats.join("、")}）`);
+    });
+
+    // 交接按鈕與字體大小按鈕
+    document.getElementById("btnTriggerHandover").addEventListener("click", openHandoverModal);
+
+    document.querySelectorAll(".font-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        playClickSound();
+        applyFontSize(btn.dataset.fontVal);
+      });
+    });
+
+    // 分頁切換
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.tab;
+        playClickSound();
+        document.querySelectorAll(".tab-btn").forEach(b => {
+          const active = b.dataset.tab === target;
+          b.classList.toggle("active", active);
+          b.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        document.querySelectorAll(".tab-panel").forEach(p => {
+          p.classList.toggle("active", p.id === `tab-${target}`);
+        });
+        if (target === "report") {
+          renderOverviewAndCertificate();
+        }
+      });
+    });
+
+    /* ==========================================================================
+       十二、全站初始化 (App Bootstrapping)
+       ========================================================================== */
+    function renderAllUI() {
+      renderGroupSeatBar();
+      renderDetectiveTab();
+      renderStopwatchTab();
+      renderToyTab();
+      renderOverviewAndCertificate();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadState();
+      renderAllUI();
+    });
+  </script>
+</body>
+</html>
